@@ -852,7 +852,11 @@ function App() {
                         <b key={i}>{n}</b>
                       ))}
                     </div>
-                    <small>同一网络，扫码入席</small>
+                    <small>
+                      {import.meta.env.VITE_DEPLOY_TARGET === "netlify"
+                        ? "各执一机，扫码入席"
+                        : "同一网络，扫码入席"}
+                    </small>
                   </div>
                   {qr && <img src={qr} alt="扫码加入此房间" />}
                 </div>
@@ -1387,7 +1391,9 @@ function App() {
                   aria-label="邀请链接"
                 />
                 <p className="modal-note">
-                  同一 Wi-Fi 的玩家扫码或输入房间号入席。
+                  {import.meta.env.VITE_DEPLOY_TARGET === "netlify"
+                    ? "分享链接，或让同道扫码、输入房间号入席。"
+                    : "同一 Wi-Fi 的玩家扫码或输入房间号入席。"}
                 </p>
               </>
             ) : modal === "leave" ? (
