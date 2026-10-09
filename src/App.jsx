@@ -232,6 +232,8 @@ function App() {
     [selection, setSelection] = useState([]),
     [inspecting, setInspecting] = useState(false),
     [vote, setVote] = useState([0, 0, 0, 0]),
+    [voteSnapshot, setVoteSnapshot] = useState(null),
+    [voteSubmitting, setVoteSubmitting] = useState(false),
     [target, setTarget] = useState(""),
     [install, setInstall] = useState(null),
     [sound, setSound] = useState(
@@ -244,9 +246,14 @@ function App() {
   const demoEngine = useRef(null);
   const awaitingInspection = useRef(false);
   const awaitingCamp = useRef(false);
+  const awaitingVote = useRef(false);
   const activeRoomCode = useRef(null);
   const receivePrivate = (data) => {
     setPrivate(data);
+    if (awaitingVote.current && data?.voted) {
+      awaitingVote.current = false;
+      setVoteSubmitting(false);
+    }
     if (awaitingCamp.current && data?.skillResult) {
       awaitingCamp.current = false;
       setInspecting(false);
@@ -289,6 +296,8 @@ function App() {
     socket.on("errorMessage", (message) => {
       awaitingInspection.current = false;
       awaitingCamp.current = false;
+      awaitingVote.current = false;
+      setVoteSubmitting(false);
       setInspecting(false);
       notify(message);
     });
@@ -367,6 +376,8 @@ function App() {
       } catch (e) {
         awaitingInspection.current = false;
         awaitingCamp.current = false;
+        awaitingVote.current = false;
+        setVoteSubmitting(false);
         setInspecting(false);
         notify(e.message);
       }
@@ -378,6 +389,20 @@ function App() {
     awaitingInspection.current = true;
     setInspecting(true);
     act("inspect", { artifacts: privateData?.canInspect ? selection : [] });
+  };
+  const submitConfirmedVote = () => {
+    if (
+      awaitingVote.current ||
+      privateData?.voted ||
+      room?.phase !== "vote" ||
+      !voteSnapshot
+    )
+      return;
+    if (!demo && !connected) return notify("连接尚未就绪，请稍后重试");
+    awaitingVote.current = true;
+    setVoteSubmitting(true);
+    setModal(null);
+    act("vote", { votes: [...voteSnapshot] });
   };
   const confirmCamp = () => {
     if (!target || inspecting) return;
@@ -441,6 +466,8 @@ function App() {
   useEffect(() => {
     setSelection([]);
     setVote([0, 0, 0, 0]);
+    setVoteSnapshot(null);
+    setModal((current) => (current === "voteConfirm" ? null : current));
     setTarget("");
   }, [room?.round, room?.phase]);
   useEffect(() => {
@@ -1118,8 +1145,10 @@ function App() {
                           <button
                             aria-pressed={selection.includes(a)}
                             disabled={
-                              privateData?.role === "方震" &&
-                              room.phase === "inspect"
+                              (privateData?.role === "方震" &&
+                                room.phase === "inspect") ||
+                              (room.phase === "vote" &&
+                                (privateData?.voted || voteSubmitting))
                             }
                             className={
                               "artifact " +
@@ -1394,20 +1423,30 @@ function App() {
                               : "护真去伪，请落筹码"}
                           </h2>
                           <p>
-                            点击兽首分配筹码，可弃票累积 · 已分配{" "}
-                            {vote.reduce((a, b) => a + b, 0)} /{" "}
-                            {privateData?.tokens || 0} · 已提交 {room.voteCount}{" "}
-                            / {room.count} 人
+                            {privateData?.voted
+                              ? `本轮投票已锁定 · 剩余筹码 ${privateData?.tokens || 0}`
+                              : `点击兽首分配筹码，可弃票累积 · 已分配 ${vote.reduce((a, b) => a + b, 0)} / ${privateData?.tokens || 0}`}{" "}
+                            · 已提交 {room.voteCount} / {room.count} 人
                           </p>
                           <button
                             className="primary compact"
                             disabled={
                               vote.reduce((a, b) => a + b, 0) >
-                                (privateData?.tokens || 0) || privateData?.voted
+                                (privateData?.tokens || 0) ||
+                              privateData?.voted ||
+                              voteSubmitting
                             }
-                            onClick={() => act("vote", { votes: vote })}
+                            onClick={() => {
+                              setVoteSnapshot([...vote]);
+                              setModal("voteConfirm");
+                            }}
                           >
-                            确认投票 <Send size={16} />
+                            {voteSubmitting
+                              ? "正在提交…"
+                              : privateData?.voted
+                                ? "已提交，不可修改"
+                                : "确认投票"}{" "}
+                            <Send size={16} />
                           </button>
                         </>
                       ) : (
@@ -1544,6 +1583,36 @@ function App() {
                   {modal === "create" ? "开局，静候同道" : "入席，赴约"}{" "}
                   <ArrowRight size={18} />
                 </button>
+              </>
+            ) : modal === "voteConfirm" ? (
+              <>
+                <Seal small />
+                <span className="eyebrow">第 {room?.round} 轮 · 护宝投票</span>
+                <h2>是否确认投票？</h2>
+                <div className="inspection-results">
+                  {room?.artifacts?.map((a, i) => (
+                    <p key={a}>
+                      {ZODIAC[a]}首 · {voteSnapshot?.[i] || 0} 票
+                    </p>
+                  ))}
+                </div>
+                <p className="modal-note">
+                  点击【是】后立即提交，本轮投票将不能修改。点击【否】取消本次提交，可继续调整筹码。
+                  {voteSnapshot?.every((v) => v === 0) &&
+                    "本次未分配筹码，将按弃票提交。"}
+                </p>
+                <div className="skill-controls">
+                  <button
+                    className="primary compact"
+                    disabled={voteSubmitting || privateData?.voted}
+                    onClick={submitConfirmedVote}
+                  >
+                    是
+                  </button>
+                  <button className="outline" onClick={() => setModal(null)}>
+                    否
+                  </button>
+                </div>
               </>
             ) : modal === "campResult" ? (
               <>
