@@ -1,0 +1,30 @@
+{
+  "name": "gudong-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "vite build",
+    "start": "node server.js --production",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "express": "^5.1.0",
+    "lucide-react": "latest",
+    "qrcode": "^1.5.4",
+    "react": "latest",
+    "react-dom": "latest",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "prettier": "^3.9.9"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
