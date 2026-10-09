@@ -7,9 +7,11 @@
     "dev": "node server.js",
     "build": "vite build",
     "start": "node server.js --production",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "build:netlify": "vite build && node scripts/netlify-assets.js"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.4",
     "@vitejs/plugin-react": "latest",
     "express": "^5.1.0",
     "lucide-react": "latest",

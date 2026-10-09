@@ -27,6 +27,8 @@ self.addEventListener("fetch", (e) => {
     e.request.method !== "GET" ||
     url.origin !== self.location.origin ||
     url.pathname.startsWith("/socket.io") ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/.netlify/") ||
     ["/teaching.mp4", "/health", "/precache.json"].includes(url.pathname)
   )
     return;

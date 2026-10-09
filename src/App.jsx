@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
+import { createCloudTransport } from "./cloud-transport.js";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -30,7 +31,10 @@ import {
 import QRCode from "qrcode";
 import * as engine from "../game.js";
 import "./style.css";
-const socket = io({ autoConnect: false });
+const socket =
+  import.meta.env.VITE_DEPLOY_TARGET === "netlify"
+    ? createCloudTransport()
+    : io({ autoConnect: false });
 const uuid = () =>
   typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -236,7 +240,7 @@ function App() {
       setDemo(false);
       localStorage.setItem("gudong-room", r.code);
       setModal(null);
-      setPage("game");
+      if (r._enter || r.version === undefined) setPage("game");
     });
     socket.on("private", setPrivate);
     socket.on("errorMessage", notify);
