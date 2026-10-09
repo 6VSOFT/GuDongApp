@@ -58,7 +58,7 @@ export function createCloudTransport({
   function receive(result, enter = false, sourceCode = code) {
     if (result.dissolved) {
       if (sourceCode) dissolvedCodes.add(sourceCode);
-      if (sourceCode !== code) return;
+      if (code && sourceCode !== code) return;
       code = null;
       revision = -1;
       dispatch("roomDissolved");
