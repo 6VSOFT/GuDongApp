@@ -34,6 +34,32 @@ function turn(r, p) {
       r.players.find((x) => x.id !== p.id && !r.acted.includes(x.id)).id,
     );
 }
+test("方震直接查验阵营：每轮一次、不能查自己、遭袭失效且结果保密", () => {
+  const r = setup(8),
+    p = r.players.find((x) => x.role === "方震");
+  const bad = r.players.find((x) => x.role === "老朝奉"),
+    good = r.players.find((x) => x.role === "许愿");
+  r.turn = p.id;
+  r.step = "inspect";
+  assert.throws(() => g.checkCamp(r, p, { target: p.id }));
+  assert.equal(r.step, "inspect");
+  g.checkCamp(r, p, { target: bad.id });
+  assert.equal(p.skillResult, `${bad.name} · 老朝奉阵营`);
+  assert.equal(r.step, "next");
+  assert.throws(() => g.checkCamp(r, p, { target: good.id }));
+  assert.equal(p.history.filter((h) => h.artifact === null).length, 1);
+  assert.equal(JSON.stringify(g.publicState(r)).includes("skillResult"), false);
+  r.round = 2;
+  r.step = "inspect";
+  p.blocked = true;
+  assert.throws(() => g.checkCamp(r, p, { target: good.id }));
+  assert.equal(r.step, "inspect");
+  p.blocked = false;
+  g.checkCamp(r, p, { target: good.id });
+  assert.equal(p.skillResult, `${good.name} · 许愿阵营`);
+  assert.equal(p.history.filter((h) => h.artifact === null).length, 2);
+  assert.throws(() => g.checkCamp(r, good, { target: bad.id }));
+});
 for (const n of [6, 7, 8])
   test(`${n} 人完整三轮对局、每轮两真两假及尾家续轮`, () => {
     const r = setup(n);

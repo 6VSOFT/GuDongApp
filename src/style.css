@@ -2266,3 +2266,20 @@ footer button {
   line-height: 1.8;
   color: #5e6d53;
 }
+.camp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 170px;
+}
+.camp-actions button {
+  padding: 8px 10px;
+  min-height: 36px;
+  font-size: 11px;
+}
+.player:has(.camp-actions [aria-pressed="true"]) {
+  outline: 1px solid #a95742;
+  outline-offset: 8px;
+  border-radius: 5px;
+}

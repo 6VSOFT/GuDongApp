@@ -180,6 +180,7 @@ io.on("connection", (s) => {
   for (const [event, fn] of Object.entries({
     inspect: (r, p, d) => game.inspect(r, p, d.artifacts),
     skill: game.skill,
+    checkCamp: game.checkCamp,
     next: (r, p, d) => game.next(r, p, d.target),
     speech: game.speech,
     vote: (r, p, d) => game.vote(r, p, d.votes),

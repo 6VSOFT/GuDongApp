@@ -43,7 +43,13 @@ function api(store) {
           "content-type": "application/json",
           authorization: "Bearer " + u.token,
         },
-        body: JSON.stringify({ event, id: u.id, name: u.name, requestId, ...data }),
+        body: JSON.stringify({
+          event,
+          id: u.id,
+          name: u.name,
+          requestId,
+          ...data,
+        }),
       }),
     );
     const result = await response.json();
@@ -84,7 +90,12 @@ test(
       if (state.phase === "inspect") {
         const u = users.find((u) => u.id === state.turn);
         const own = await send(u, "state", { code });
-        if (state.step === "inspect")
+        if (state.step === "inspect" && own.private.role === "方震")
+          r = await send(u, "checkCamp", {
+            code,
+            target: users.find((x) => x.id !== u.id).id,
+          });
+        else if (state.step === "inspect")
           r = await send(u, "inspect", {
             code,
             artifacts: own.private.canInspect
@@ -219,4 +230,3 @@ test("云端传输：状态轮询、重连回席与事件处理兼容客户端",
     transport.disconnect();
   }
 });
-

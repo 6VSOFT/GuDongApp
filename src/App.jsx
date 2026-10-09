@@ -245,9 +245,16 @@ function App() {
   }, [page]);
   const demoEngine = useRef(null);
   const awaitingInspection = useRef(false);
+  const awaitingCamp = useRef(false);
   const activeRoomCode = useRef(null);
   const receivePrivate = (data) => {
     setPrivate(data);
+    if (awaitingCamp.current && data?.skillResult) {
+      awaitingCamp.current = false;
+      setInspecting(false);
+      setTarget("");
+      setModal("campResult");
+    }
     if (awaitingInspection.current && data?.inspection?.length) {
       awaitingInspection.current = false;
       setInspecting(false);
@@ -283,6 +290,7 @@ function App() {
     socket.on("private", receivePrivate);
     socket.on("errorMessage", (message) => {
       awaitingInspection.current = false;
+      awaitingCamp.current = false;
       setInspecting(false);
       notify(message);
     });
@@ -310,6 +318,7 @@ function App() {
         const methods = {
           inspect: () => engine.inspect(r, p, payload.artifacts),
           skill: () => engine.skill(r, p, payload),
+          checkCamp: () => engine.checkCamp(r, p, payload),
           next: () => engine.next(r, p, payload.target),
           speech: () => engine.speech(r, p),
           vote: () => engine.vote(r, p, payload.votes),
@@ -363,6 +372,7 @@ function App() {
         receivePrivate(engine.privateState(r, p));
       } catch (e) {
         awaitingInspection.current = false;
+        awaitingCamp.current = false;
         setInspecting(false);
         notify(e.message);
       }
@@ -374,6 +384,12 @@ function App() {
     awaitingInspection.current = true;
     setInspecting(true);
     act("inspect", { artifacts: privateData?.canInspect ? selection : [] });
+  };
+  const confirmCamp = () => {
+    if (!target || inspecting) return;
+    awaitingCamp.current = true;
+    setInspecting(true);
+    act("checkCamp", { target });
   };
   const enter = (joining) => {
     if (!name.trim()) return notify("请先留一个入局雅号");
@@ -506,6 +522,17 @@ function App() {
   }, [modal]);
   const self = room?.players.find((p) => p.id === id),
     isTurn = room?.turn === id;
+  const isFangAction =
+    privateData?.role === "方震" &&
+    isTurn &&
+    room?.phase === "inspect" &&
+    ["inspect", "skill"].includes(room?.step);
+  const canCheckCamp =
+    isFangAction &&
+    privateData?.hasSkill &&
+    !privateData?.history?.some(
+      (h) => h.round === room.round && h.artifact === null,
+    );
   return (
     <div className="app">
       <aside className="sidebar">
@@ -882,6 +909,42 @@ function App() {
                             ? "席中"
                             : "暂离"}
                   </small>
+                  {canCheckCamp && p.id !== id && (
+                    <div className="camp-actions">
+                      <button
+                        className={
+                          target === p.id ? "primary compact" : "outline"
+                        }
+                        disabled={inspecting}
+                        onClick={() => {
+                          setTarget(p.id);
+                          setSelection([]);
+                        }}
+                        aria-pressed={target === p.id}
+                        aria-label={`选择查验 ${p.name}`}
+                      >
+                        选择
+                      </button>
+                      {target === p.id && (
+                        <>
+                          <button
+                            className="primary compact"
+                            disabled={inspecting}
+                            onClick={confirmCamp}
+                          >
+                            {inspecting ? "查验中…" : "查验"}
+                          </button>
+                          <button
+                            className="outline"
+                            disabled={inspecting}
+                            onClick={() => setTarget("")}
+                          >
+                            取消
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1061,6 +1124,10 @@ function App() {
                         <div className="artifact-item" key={a}>
                           <button
                             aria-pressed={selection.includes(a)}
+                            disabled={
+                              privateData?.role === "方震" &&
+                              room.phase === "inspect"
+                            }
                             className={
                               "artifact " +
                               (selection.includes(a) ? "selected" : "")
@@ -1077,6 +1144,7 @@ function App() {
                               } else if (
                                 room.phase === "inspect" &&
                                 room.step === "inspect" &&
+                                privateData?.canInspect &&
                                 !inspecting
                               )
                                 setSelection((s) =>
@@ -1141,11 +1209,13 @@ function App() {
                           </span>
                           <h2>
                             {isTurn
-                              ? room.step === "inspect"
-                                ? "选择兽首，鉴定真伪"
-                                : room.step === "skill"
-                                  ? "是否发动角色能力？"
-                                  : "请指定下一位鉴宝人"
+                              ? isFangAction
+                                ? "选择其他玩家，查验阵营"
+                                : room.step === "inspect"
+                                  ? "选择兽首，鉴定真伪"
+                                  : room.step === "skill"
+                                    ? "是否发动角色能力？"
+                                    : "请指定下一位鉴宝人"
                               : `${room.players.find((p) => p.id === room.turn)?.name} 正在行动`}
                           </h2>
                           <p>
@@ -1155,9 +1225,30 @@ function App() {
                             ]
                               .filter(Boolean)
                               .join(" · ") ||
-                              "鉴定结果仅在自己的设备显示，请勿让他人窥屏。"}
+                              (privateData?.role === "方震"
+                                ? "查验结果仅在自己的设备显示，请勿让他人窥屏。"
+                                : "鉴定结果仅在自己的设备显示，请勿让他人窥屏。")}
                           </p>
-                          {isTurn &&
+                          {isFangAction ? (
+                            <>
+                              <p>
+                                {canCheckCamp
+                                  ? "本轮可查验一次。请在上方选择其他玩家，再点击【查验】；结果仅你可见。"
+                                  : "本轮无法查验阵营。"}
+                              </p>
+                              <button
+                                className="outline"
+                                disabled={inspecting}
+                                onClick={() => {
+                                  setTarget("");
+                                  act("checkCamp", { skip: true });
+                                }}
+                              >
+                                {canCheckCamp ? "本轮跳过查验" : "继续行动"}
+                              </button>
+                            </>
+                          ) : (
+                            isTurn &&
                             (room.step === "inspect" ? (
                               privateData?.canInspect ? (
                                 <p className="inspection-hint">
@@ -1275,7 +1366,8 @@ function App() {
                                   交予下家 <ArrowRight size={16} />
                                 </button>
                               </div>
-                            ))}
+                            ))
+                          )}
                         </>
                       ) : room.phase === "discussion" ? (
                         <>
@@ -1483,6 +1575,23 @@ function App() {
                 >
                   {modal === "create" ? "开局，静候同道" : "入席，赴约"}{" "}
                   <ArrowRight size={18} />
+                </button>
+              </>
+            ) : modal === "campResult" ? (
+              <>
+                <Seal small />
+                <span className="eyebrow">
+                  仅本人可见 · 第 {room?.round} 轮
+                </span>
+                <h2>玩家阵营查验结果</h2>
+                <div className="inspection-results">
+                  <p>{privateData?.skillResult}</p>
+                </div>
+                <p className="modal-note">
+                  本轮查验已使用，结果已记入我的手札。
+                </p>
+                <button className="primary" onClick={() => setModal(null)}>
+                  收好结果，继续行动 <ArrowRight size={17} />
                 </button>
               </>
             ) : modal === "inspection" ? (

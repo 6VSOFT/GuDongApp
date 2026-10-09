@@ -155,6 +155,28 @@ export function inspect(r, p, artifacts) {
   r.step = "skill";
   maybeFinishTurn(r, p);
 }
+export function checkCamp(r, p, { skip = false, target }) {
+  check(p.role === "方震", "只有方震可以查验阵营");
+  check(
+    r.phase === "inspect" &&
+      r.turn === p.id &&
+      ["inspect", "skill"].includes(r.step),
+    "当前不能查验阵营",
+  );
+  if (!skip) {
+    check(!p.blocked, "遭袭时不能查验阵营");
+    check(
+      !p.history.some((h) => h.round === r.round && h.artifact === null),
+      "本轮已查验过阵营",
+    );
+    check(
+      r.players.some((q) => q.id === target && q.id !== p.id),
+      "请选择其他玩家",
+    );
+  }
+  if (r.step === "inspect") inspect(r, p, []);
+  skill(r, p, { skip, target });
+}
 export function skill(r, p, { skip, target }) {
   check(
     r.phase === "inspect" && r.turn === p.id && r.step === "skill",
@@ -178,6 +200,10 @@ export function skill(r, p, { skip, target }) {
       const victim = r.players.find((x) => x.id === target && x.id !== p.id);
       check(victim, "请选择其他玩家");
       if (p.role === "方震") {
+        check(
+          !p.history.some((h) => h.round === r.round && h.artifact === null),
+          "本轮已查验过阵营",
+        );
         p.skillResult = `${victim.name} · ${evil(victim) ? "老朝奉阵营" : "许愿阵营"}`;
         p.history.push({
           round: r.round,
