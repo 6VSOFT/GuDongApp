@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { io } from "socket.io-client";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
+import { createRoom } from "../game.js";
+import { INACTIVITY_MS } from "../lib/room-lifecycle.js";
 import fs from "node:fs";
 import path from "node:path";
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -13,6 +15,59 @@ const until = async (fn) => {
   }
   throw Error("等待客户端同步超时");
 };
+test(
+  "本地无操作房间到期通知在线玩家，回席与连接不延长计时",
+  { timeout: 15000 },
+  async () => {
+    const dataDir = path.resolve(".work", "expiry-" + randomUUID());
+    fs.mkdirSync(dataDir, { recursive: true });
+    const token = randomUUID(),
+      id = randomUUID();
+    const r = createRoom("123456", 6, {
+      id,
+      name: "到期测试",
+      auth: createHash("sha256").update(token).digest("hex"),
+      color: 0,
+    });
+    r.lastActionAt = Date.now() - INACTIVITY_MS + 4000;
+    fs.writeFileSync(
+      path.join(dataDir, "rooms.json"),
+      JSON.stringify([[r.code, r]]),
+    );
+    const child = spawn(process.execPath, ["server.js", "--production"], {
+      env: { ...process.env, PORT: "5193", DATA_DIR: dataDir },
+      stdio: "pipe",
+    });
+    let output = "",
+      state,
+      reason;
+    child.stdout.on("data", (d) => (output += d));
+    let socket;
+    try {
+      await until(() => output.includes("鉴宝局已开席"));
+      socket = io("http://localhost:5193", {
+        auth: { token },
+        transports: ["websocket"],
+        reconnection: false,
+      });
+      socket.on("state", (s) => (state = s));
+      socket.on("roomDissolved", (value) => (reason = value));
+      await until(() => socket.connected);
+      socket.emit("resume", { code: r.code, id });
+      await until(() => state);
+      await until(() => reason);
+      assert.equal(reason, "inactive");
+      await until(
+        () =>
+          JSON.parse(fs.readFileSync(path.join(dataDir, "rooms.json"), "utf8"))
+            .length === 0,
+      );
+    } finally {
+      socket?.disconnect();
+      child.kill();
+    }
+  },
+);
 test(
   "6 个独立 Socket 客户端：入座、鉴定隐私、三轮投票、身份指认、越权拒绝与重连",
   { timeout: 30000 },

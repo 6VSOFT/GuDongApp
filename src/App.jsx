@@ -298,9 +298,13 @@ function App() {
     socket.connect();
     socket.on("roomExpired", exitRoom);
     socket.on("left", exitRoom);
-    socket.on("roomDissolved", () => {
+    socket.on("roomDissolved", (reason) => {
       exitRoom();
-      notify("房主已解散房间，本局游戏已结束");
+      notify(
+        reason === "inactive"
+          ? "房间连续 24 小时无人操作，已自动解散"
+          : "房主已解散房间，本局游戏已结束",
+      );
     });
     socket.on("connect", () => {
       setConnected(true);

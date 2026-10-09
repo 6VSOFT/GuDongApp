@@ -7,6 +7,7 @@ import path from "node:path";
 import { networkInterfaces } from "node:os";
 import { fileURLToPath } from "node:url";
 import * as game from "./game.js";
+import { isInactive } from "./lib/room-lifecycle.js";
 const base = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
@@ -16,11 +17,7 @@ fs.mkdirSync(dataDir, { recursive: true });
 const store = path.join(dataDir, "rooms.json");
 let rooms = new Map();
 try {
-  rooms = new Map(
-    JSON.parse(fs.readFileSync(store, "utf8")).filter(
-      ([, r]) => Date.now() - r.createdAt < 7 * 86400000,
-    ),
-  );
+  rooms = new Map(JSON.parse(fs.readFileSync(store, "utf8")));
   for (const r of rooms.values())
     r.players.forEach((p) => {
       p.online = false;
@@ -46,6 +43,18 @@ function emit(r) {
     if (!p.socketId) continue;
     io.to(p.socketId).emit("state", { ...game.publicState(r), inviteBase });
     io.to(p.socketId).emit("private", game.privateState(r, p));
+  }
+  save();
+}
+function dissolve(r, reason) {
+  rooms.delete(r.code);
+  for (const member of r.players) {
+    const client = io.sockets.sockets.get(member.socketId);
+    if (!client) continue;
+    client.leave(r.code);
+    client.data.code = null;
+    client.data.player = null;
+    client.emit("roomDissolved", reason);
   }
   save();
 }
@@ -75,7 +84,23 @@ io.on("connection", (s) => {
         calls = calls.filter((t) => Date.now() - t < 5000);
         if (calls.length > 40) throw Error("操作过于频繁，请稍后");
         calls.push(Date.now());
+        const current = rooms.get(s.data.code || String(data.code));
+        if (isInactive(current)) {
+          const member = current.players.some((p) => p.auth === s.data.auth);
+          const attached = Boolean(s.data.code);
+          dissolve(current, "inactive");
+          if (member && !attached) s.emit("roomDissolved", "inactive");
+          if (!member) s.emit("errorMessage", "此房间已自动解散");
+          return;
+        }
+        for (const r of rooms.values())
+          if (isInactive(r)) dissolve(r, "inactive");
         fn(data);
+        const active = rooms.get(s.data.code);
+        if (active && !["resume", "join"].includes(event)) {
+          active.lastActionAt = Date.now();
+          save();
+        }
       } catch (e) {
         s.emit("errorMessage", e.message);
       }
@@ -141,6 +166,7 @@ io.on("connection", (s) => {
     );
     const p = player(d, color);
     r.players.push(p);
+    r.lastActionAt = Date.now();
     r.logs.push(p.name + " 已入席。");
     attach(s, r, p);
   });
@@ -215,16 +241,7 @@ io.on("connection", (s) => {
   on("dissolve", () => {
     const [r, p] = ctx();
     if (r.host !== p.id) throw Error("只有房主可以解散房间");
-    rooms.delete(r.code);
-    for (const member of r.players) {
-      const client = io.sockets.sockets.get(member.socketId);
-      if (!client) continue;
-      client.leave(r.code);
-      client.data.code = null;
-      client.data.player = null;
-      client.emit("roomDissolved");
-    }
-    save();
+    dissolve(r);
   });
   s.on("disconnect", () => {
     const r = rooms.get(s.data.code);
@@ -238,7 +255,8 @@ io.on("connection", (s) => {
 });
 setInterval(() => {
   for (const r of rooms.values())
-    if (r.phase === "openDiscussion") {
+    if (isInactive(r)) dissolve(r, "inactive");
+    else if (r.phase === "openDiscussion") {
       game.beginVote(r);
       emit(r);
     }

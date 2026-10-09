@@ -46,6 +46,7 @@ export function createRoom(code, count, player) {
     score: 0,
     logs: ["鉴宝席已设，静候同道。"],
     createdAt: Date.now(),
+    lastActionAt: Date.now(),
   };
 }
 export function start(r) {

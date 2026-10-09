@@ -61,7 +61,7 @@ export function createCloudTransport({
       if (code && sourceCode !== code) return;
       code = null;
       revision = -1;
-      dispatch("roomDissolved");
+      dispatch("roomDissolved", result.reason);
       return;
     }
     if (result.left) {

@@ -3,12 +3,24 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createHandler } from "../lib/cloud-game.js";
 import { createCloudTransport } from "../src/cloud-transport.js";
+import {
+  INACTIVITY_MS,
+  isInactive,
+  expireInactiveRooms,
+} from "../lib/room-lifecycle.js";
 const clone = (x) => (x == null ? null : structuredClone(x));
 function memoryStore() {
   const entries = new Map();
   let version = 0;
   return {
     entries,
+    async *list() {
+      yield {
+        blobs: [...entries.keys()]
+          .filter((key) => key.startsWith("rooms/"))
+          .map((key) => ({ key })),
+      };
+    },
     async get(key) {
       return clone(entries.get(key)?.data);
     },
@@ -194,6 +206,74 @@ test("Netlify 旧房间未结束的公开讨论直接转投票；超额票与越
   );
   assert.equal((await send(user(), "start", { code })).status, 403);
 });
+test("24 小时无操作自动解散：轮询和回席不续期，有效操作续期，旧房间兼容", async () => {
+  const store = memoryStore(),
+    send = api(store),
+    u = user();
+  const {
+    state: { code },
+  } = await send(u, "create", { count: 6 });
+  const row = () => store.entries.get("rooms/" + code).data;
+  row().createdAt = Date.now() - 10 * INACTIVITY_MS;
+  row().lastActionAt = Date.now() - INACTIVITY_MS + 60000;
+  const before = row().lastActionAt;
+  for (const event of ["state", "resume"])
+    assert.equal((await send(u, event, { code })).status, 200);
+  assert.equal(row().lastActionAt, before);
+  assert.equal((await send(u, "color", { code, color: -1 })).status, 400);
+  assert.equal(row().lastActionAt, before);
+  await send(u, "ready", { code });
+  assert.ok(row().lastActionAt > before);
+  assert.equal(
+    isInactive({ phase: "lobby", lastActionAt: 100 }, 100 + INACTIVITY_MS - 1),
+    false,
+  );
+  assert.equal(
+    isInactive({ phase: "lobby", lastActionAt: 100 }, 100 + INACTIVITY_MS),
+    true,
+  );
+  row().lastActionAt = Date.now() - INACTIVITY_MS;
+  const expired = await send(u, "ready", { code });
+  assert.equal(expired.dissolved, true);
+  assert.equal(expired.reason, "inactive");
+  assert.equal(row().phase, "closed");
+  assert.equal((await send(u, "create", { count: 6 })).status, 200);
+  const legacy = user(),
+    created = await send(legacy, "create", { count: 6 });
+  const old = store.entries.get("rooms/" + created.state.code).data;
+  delete old.lastActionAt;
+  old.createdAt = Date.now() - INACTIVITY_MS;
+  assert.equal(
+    (await send(legacy, "resume", { code: old.code })).reason,
+    "inactive",
+  );
+});
+
+test("后台清理无人房间，条件写入不误关刚恢复活跃的房间", async () => {
+  const store = memoryStore(),
+    send = api(store);
+  const a = await send(user(), "create", { count: 6 }),
+    b = await send(user(), "create", { count: 6 });
+  for (const code of [a.state.code, b.state.code])
+    store.entries.get("rooms/" + code).data.lastActionAt =
+      Date.now() - INACTIVITY_MS;
+  const set = store.setJSON.bind(store);
+  store.setJSON = async (key, data, options) => {
+    if (key === "rooms/" + b.state.code) {
+      const row = store.entries.get(key);
+      row.data.lastActionAt = Date.now();
+      row.etag = "new-activity";
+    }
+    return set(key, data, options);
+  };
+  assert.equal(await expireInactiveRooms(store), 1);
+  assert.equal(
+    store.entries.get("rooms/" + a.state.code).data.dissolveReason,
+    "inactive",
+  );
+  assert.equal(store.entries.get("rooms/" + b.state.code).data.phase, "lobby");
+});
+
 test("房主解散进行中的房间：全员退出、无法回席、可重新开局", async () => {
   const store = memoryStore(),
     send = api(store),
