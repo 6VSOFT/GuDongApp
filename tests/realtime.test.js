@@ -187,8 +187,13 @@ test(
               host.state.phase !== "discussion",
           );
         } else if (r.phase === "vote") {
+          host.error = null;
+          host.socket.emit("vote", { votes: [0, 0, 0, 0] });
+          await until(() => host.error);
+          assert.match(host.error, /投票确认弹窗/);
+          assert.equal(host.private.voted, false);
           for (const c of clients)
-            c.socket.emit("vote", { votes: [1, 0, 0, 0] });
+            c.socket.emit("vote", { votes: [1, 0, 0, 0], confirmed: true });
           await until(() => host.state.phase === "result");
           assert.equal(host.state.result[0].truth, null);
         } else if (r.phase === "result") {

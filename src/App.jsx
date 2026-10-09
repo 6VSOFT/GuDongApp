@@ -227,6 +227,7 @@ function App() {
     [privateData, setPrivate] = useState(null),
     [connected, setConnected] = useState(false),
     [toast, setToast] = useState(""),
+    [updateAvailable, setUpdateAvailable] = useState(false),
     [demo, setDemo] = useState(false),
     [reveal, setReveal] = useState(false),
     [selection, setSelection] = useState([]),
@@ -339,10 +340,37 @@ function App() {
       setInstall(e);
     };
     window.addEventListener("beforeinstallprompt", handler);
-    if ("serviceWorker" in navigator && import.meta.env.PROD)
-      navigator.serviceWorker.register("/sw.js");
+    const workerChanged = () => setUpdateAvailable(true);
+    let updateTimer;
+    const checkForUpdate = () => {
+      if (!document.hidden)
+        navigator.serviceWorker
+          .getRegistration()
+          .then((registration) => registration?.update())
+          .catch(() => {});
+    };
+    if ("serviceWorker" in navigator && import.meta.env.PROD) {
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      if (hadController)
+        navigator.serviceWorker.addEventListener(
+          "controllerchange",
+          workerChanged,
+        );
+      navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .then((registration) => registration.update())
+        .catch(() => {});
+      document.addEventListener("visibilitychange", checkForUpdate);
+      updateTimer = setInterval(checkForUpdate, 60000);
+    }
     return () => {
       socket.off();
+      navigator.serviceWorker?.removeEventListener(
+        "controllerchange",
+        workerChanged,
+      );
+      document.removeEventListener("visibilitychange", checkForUpdate);
+      clearInterval(updateTimer);
       window.removeEventListener("beforeinstallprompt", handler);
     };
   }, []);
@@ -435,7 +463,7 @@ function App() {
     awaitingVote.current = true;
     setVoteSubmitting(true);
     setModal(null);
-    act("vote", { votes: [...voteSnapshot] });
+    act("vote", { votes: [...voteSnapshot], confirmed: true });
   };
   const confirmCamp = () => {
     if (!target || inspecting) return;
@@ -1539,6 +1567,14 @@ function App() {
           </div>
         )}
       </main>
+      {updateAvailable && (
+        <div className="update-banner" role="status">
+          <span>新版本已就绪，刷新后使用最新功能；已提交的投票会保留。</span>
+          <button className="primary compact" onClick={() => location.reload()}>
+            刷新应用
+          </button>
+        </div>
+      )}
       {toast && (
         <div className="toast">
           <Check size={17} />

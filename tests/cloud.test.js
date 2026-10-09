@@ -131,7 +131,9 @@ test(
         );
       else if (state.phase === "vote") {
         const votes = await Promise.all(
-          users.map((u) => send(u, "vote", { code, votes: [1, 0, 0, 0] })),
+          users.map((u) =>
+            send(u, "vote", { code, votes: [1, 0, 0, 0], confirmed: true }),
+          ),
         );
         assert.ok(votes.every((x) => x.status === 200));
         r = await send(users[0], "state", { code });
@@ -201,11 +203,49 @@ test("Netlify 旧房间未结束的公开讨论直接转投票；超额票与越
   const r = await send(u, "state", { code });
   assert.equal(r.state.phase, "vote");
   assert.equal(
-    (await send(u, "vote", { code, votes: [3, 0, 0, 0] })).status,
+    (await send(u, "vote", { code, votes: [3, 0, 0, 0], confirmed: true }))
+      .status,
     400,
   );
   assert.equal((await send(user(), "start", { code })).status, 403);
 });
+test("旧页面跳过确认的投票不会扣筹码或提交；明确确认后锁定", async () => {
+  const store = memoryStore(),
+    send = api(store),
+    u = user();
+  const created = await send(u, "create", { count: 6 });
+  const code = created.state.code,
+    room = store.entries.get("rooms/" + code).data;
+  room.phase = "vote";
+  room.votes = {};
+  room.players[0].tokens = 4;
+  for (const confirmed of [undefined, false, "true"]) {
+    const rejected = await send(u, "vote", {
+      code,
+      votes: [1, 0, 0, 0],
+      confirmed,
+    });
+    assert.equal(rejected.status, 400);
+    assert.match(rejected.error, /投票确认弹窗/);
+    const state = await send(u, "state", { code });
+    assert.equal(state.private.tokens, 4);
+    assert.equal(state.private.voted, false);
+    assert.equal(state.state.voteCount, 0);
+  }
+  const accepted = await send(u, "vote", {
+    code,
+    votes: [1, 0, 0, 0],
+    confirmed: true,
+  });
+  assert.equal(accepted.private.tokens, 3);
+  assert.equal(accepted.private.voted, true);
+  assert.equal(
+    (await send(u, "vote", { code, votes: [0, 1, 0, 0], confirmed: true }))
+      .status,
+    400,
+  );
+});
+
 test("加入新房间自动退出旧房间；失败保留原登录，重试不重复入座", async () => {
   const store = memoryStore(),
     send = api(store),

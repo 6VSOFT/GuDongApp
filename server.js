@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import * as game from "./game.js";
 import { isInactive } from "./lib/room-lifecycle.js";
 import { removeLogin } from "./lib/room-membership.js";
+import { requireVoteConfirmation } from "./lib/vote-confirmation.js";
 const base = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
@@ -229,7 +230,10 @@ io.on("connection", (s) => {
     checkCamp: game.checkCamp,
     next: (r, p, d) => game.next(r, p, d.target),
     speech: game.speech,
-    vote: (r, p, d) => game.vote(r, p, d.votes),
+    vote: (r, p, d) => {
+      requireVoteConfirmation(d);
+      game.vote(r, p, d.votes);
+    },
     continue: game.continueGame,
     guess: (r, p, d) => game.guess(r, p, d.target),
   }))
