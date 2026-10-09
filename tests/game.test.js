@@ -223,7 +223,7 @@ test("按用户确认，相对多数指认正确加一分；并列不给分", ()
     assert.equal(r.scoreBreakdown.chief, tied ? 0 : 1);
   }
 });
-test("推荐玩法：绝对发言结束后进入五分钟公开讨论", () => {
+test("按用户要求省略公开讨论：旧房间开启讨论标记也直接投票", () => {
   const r = setup();
   r.discussion = true;
   while (r.phase === "inspect")
@@ -236,8 +236,8 @@ test("推荐玩法：绝对发言结束后进入五分钟公开讨论", () => {
       r,
       r.players.find((p) => p.id === r.speaker),
     );
-  assert.equal(r.phase, "openDiscussion");
-  assert.ok(r.discussionEnds - Date.now() > 299000);
+  assert.equal(r.phase, "vote");
+  assert.equal(r.discussionEnds, undefined);
   g.beginVote(r);
   assert.equal(r.phase, "vote");
 });

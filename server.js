@@ -121,7 +121,7 @@ io.on("connection", (s) => {
       code = String(randomInt(100000, 1000000));
     } while (rooms.has(code));
     const p = player(d, 0),
-      r = game.createRoom(code, d.count, p, !!d.discussion);
+      r = game.createRoom(code, d.count, p);
     rooms.set(code, r);
     attach(s, r, p);
   });
@@ -224,7 +224,7 @@ io.on("connection", (s) => {
 });
 setInterval(() => {
   for (const r of rooms.values())
-    if (r.phase === "openDiscussion" && Date.now() >= r.discussionEnds) {
+    if (r.phase === "openDiscussion") {
       game.beginVote(r);
       emit(r);
     }

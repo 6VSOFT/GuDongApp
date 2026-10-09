@@ -34,7 +34,7 @@ export const shuffle = (a) => {
 const check = (ok, msg) => {
   if (!ok) throw Error(msg);
 };
-export function createRoom(code, count, player, discussion = false) {
+export function createRoom(code, count, player) {
   check([6, 7, 8].includes(count), "请选择 6–8 人");
   return {
     code,
@@ -45,7 +45,6 @@ export function createRoom(code, count, player, discussion = false) {
     round: 0,
     score: 0,
     logs: ["鉴宝席已设，静候同道。"],
-    discussion,
     createdAt: Date.now(),
   };
 }
@@ -260,15 +259,12 @@ export function speech(r, p) {
   r.speechIndex++;
   if (r.speechIndex === r.count) {
     r.speaker = null;
-    if (r.discussion) {
-      r.phase = "openDiscussion";
-      r.discussionEnds = Date.now() + 5 * 60 * 1000;
-      r.logs.push("进入五分钟公开讨论。");
-    } else beginVote(r);
+    beginVote(r);
   } else r.speaker = r.speechOrder[r.speechIndex];
 }
 export function beginVote(r) {
   r.phase = "vote";
+  delete r.discussionEnds;
   r.logs.push("所有人发言完毕，开始秘密投票。");
 }
 export function vote(r, p, votes) {
@@ -391,7 +387,6 @@ export function publicState(r) {
     voteCount: Object.keys(r.votes || {}).length,
     result: r.result,
     ackCount: r.acks?.length || 0,
-    discussionEnds: r.discussionEnds,
     winner: r.winner,
     scoreBreakdown: r.phase === "finished" ? r.scoreBreakdown : null,
     revealed:

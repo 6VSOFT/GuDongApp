@@ -237,8 +237,6 @@ function App() {
     [sound, setSound] = useState(
       localStorage.getItem("gudong-sound") !== "off",
     ),
-    [discussion, setDiscussion] = useState(false),
-    [now, setNow] = useState(Date.now()),
     [qr, setQr] = useState("");
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -305,10 +303,6 @@ function App() {
       socket.off();
       window.removeEventListener("beforeinstallprompt", handler);
     };
-  }, []);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
   }, []);
   const act = (event, payload = {}) => {
     if (demo) {
@@ -401,7 +395,6 @@ function App() {
       name: name.trim(),
       code,
       count,
-      discussion,
     });
   };
   const demoRoom = () => {
@@ -1393,23 +1386,6 @@ function App() {
                             </button>
                           )}
                         </>
-                      ) : room.phase === "openDiscussion" ? (
-                        <>
-                          <span className="eyebrow">
-                            视频推荐玩法 · 公开讨论
-                          </span>
-                          <h2>共辨真伪，畅所欲言</h2>
-                          <p>
-                            剩余{" "}
-                            {Math.max(
-                              0,
-                              Math.ceil(
-                                ((room.discussionEnds || now) - now) / 1000,
-                              ),
-                            )}{" "}
-                            秒，讨论结束后自动进入投票。
-                          </p>
-                        </>
                       ) : room.phase === "vote" ? (
                         <>
                           <h2>
@@ -1542,14 +1518,6 @@ function App() {
                         </button>
                       ))}
                     </div>
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={discussion}
-                        onChange={(e) => setDiscussion(e.target.checked)}
-                      />
-                      投票前公开讨论 5 分钟（视频推荐玩法）
-                    </label>
                     <p className="modal-note">
                       系统随机分发身份，并引导完整三轮对局。
                       <br />
@@ -1726,7 +1694,6 @@ const PHASE_NAMES = {
   inspect: "掌眼鉴宝",
   discussion: "各抒己见",
   vote: "护宝投票",
-  openDiscussion: "公开讨论",
   result: "护宝揭晓",
   tiebreak: "同票裁定",
   guess: "辨人识心",

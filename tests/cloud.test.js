@@ -175,7 +175,7 @@ test("Netlify 重试幂等、角色隐私和并发建局会话独占", async () 
   await send(u, "leave", { code });
   assert.equal((await send(u, "resume", { code })).status, 404);
 });
-test("Netlify 公开讨论按服务端时间推进；超额票与越权被拒绝", async () => {
+test("Netlify 旧房间未结束的公开讨论直接转投票；超额票与越权被拒绝", async () => {
   const store = memoryStore(),
     send = api(store),
     u = user(),
@@ -183,7 +183,7 @@ test("Netlify 公开讨论按服务端时间推进；超额票与越权被拒绝
   const code = created.state.code;
   const row = store.entries.get("rooms/" + code);
   row.data.phase = "openDiscussion";
-  row.data.discussionEnds = Date.now() - 1;
+  row.data.discussionEnds = Date.now() + 5 * 60 * 1000;
   row.data.votes = {};
   row.data.players[0].tokens = 2;
   const r = await send(u, "state", { code });
