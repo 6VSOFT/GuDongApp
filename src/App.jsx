@@ -190,6 +190,31 @@ function Beast({ type = 4, large = false }) {
     </svg>
   );
 }
+function SkillDecision({ onChoose, disabled = false }) {
+  return (
+    <div
+      className="skill-decision"
+      role="group"
+      aria-label="是否发动老朝奉技能"
+    >
+      <strong>是否发动技能？</strong>
+      <button
+        className="primary compact"
+        disabled={disabled}
+        onClick={() => onChoose(false)}
+      >
+        是，发动技能
+      </button>
+      <button
+        className="outline"
+        disabled={disabled}
+        onClick={() => onChoose(true)}
+      >
+        否，不发动
+      </button>
+    </div>
+  );
+}
 function App() {
   const [page, setPage] = useState("home"),
     [modal, setModal] = useState(null),
@@ -205,6 +230,7 @@ function App() {
     [demo, setDemo] = useState(false),
     [reveal, setReveal] = useState(false),
     [selection, setSelection] = useState([]),
+    [inspecting, setInspecting] = useState(false),
     [vote, setVote] = useState([0, 0, 0, 0]),
     [target, setTarget] = useState(""),
     [install, setInstall] = useState(null),
@@ -218,6 +244,17 @@ function App() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [page]);
   const demoEngine = useRef(null);
+  const awaitingInspection = useRef(false);
+  const activeRoomCode = useRef(null);
+  const receivePrivate = (data) => {
+    setPrivate(data);
+    if (awaitingInspection.current && data?.inspection?.length) {
+      awaitingInspection.current = false;
+      setInspecting(false);
+      setSelection([]);
+      setModal("inspection");
+    }
+  };
   const id = localStorage.getItem("gudong-id") || uuid();
   if (!localStorage.getItem("gudong-id")) localStorage.setItem("gudong-id", id);
   const notify = (t) => {
@@ -239,11 +276,16 @@ function App() {
       setRoom(r);
       setDemo(false);
       localStorage.setItem("gudong-room", r.code);
-      setModal(null);
+      if (activeRoomCode.current !== r.code || r._enter) setModal(null);
+      activeRoomCode.current = r.code;
       if (r._enter || r.version === undefined) setPage("game");
     });
-    socket.on("private", setPrivate);
-    socket.on("errorMessage", notify);
+    socket.on("private", receivePrivate);
+    socket.on("errorMessage", (message) => {
+      awaitingInspection.current = false;
+      setInspecting(false);
+      notify(message);
+    });
     const handler = (e) => {
       e.preventDefault();
       setInstall(e);
@@ -318,13 +360,20 @@ function App() {
           } else break;
         }
         setRoom(engine.publicState(r));
-        setPrivate(engine.privateState(r, p));
+        receivePrivate(engine.privateState(r, p));
       } catch (e) {
+        awaitingInspection.current = false;
+        setInspecting(false);
         notify(e.message);
       }
       return;
     }
     socket.emit(event, { code: room?.code, id, ...payload });
+  };
+  const confirmInspection = () => {
+    awaitingInspection.current = true;
+    setInspecting(true);
+    act("inspect", { artifacts: privateData?.canInspect ? selection : [] });
   };
   const enter = (joining) => {
     if (!name.trim()) return notify("请先留一个入局雅号");
@@ -925,6 +974,25 @@ function App() {
                       {privateData?.ally && ` · 同伴：${privateData.ally}`}
                     </p>
                   )}
+                  {reveal &&
+                    privateData?.role === "老朝奉" &&
+                    isTurn &&
+                    room.phase === "inspect" &&
+                    ["inspect", "skill"].includes(room.step) && (
+                      <>
+                        {privateData.hasSkill ? (
+                          <SkillDecision
+                            disabled={room.step !== "skill" || inspecting}
+                            onChoose={(skip) => act("skill", { skip })}
+                          />
+                        ) : (
+                          <p>本次无法发动技能。</p>
+                        )}
+                        {room.step === "inspect" && privateData.hasSkill && (
+                          <p>完成鉴定后，选择是否发动技能。</p>
+                        )}
+                      </>
+                    )}
                 </div>
                 {room.phase === "finished" ? (
                   <div className="lobby-board">
@@ -990,46 +1058,79 @@ function App() {
                     </div>
                     <div className="artifact-grid">
                       {room.artifacts?.map((a, i) => (
-                        <button
-                          key={a}
-                          className={
-                            "artifact " +
-                            (selection.includes(a) ? "selected" : "")
-                          }
-                          onClick={() => {
-                            if (room.phase === "vote") {
-                              setVote((v) => {
-                                const n = [...v];
-                                n[i] =
-                                  (n[i] + 1) % ((privateData?.tokens || 0) + 1);
-                                return n;
-                              });
-                            } else
-                              setSelection((s) =>
-                                s.includes(a)
-                                  ? s.filter((x) => x !== a)
-                                  : [...s, a].slice(
-                                      -(privateData?.role === "许愿" ? 2 : 1),
-                                    ),
-                              );
-                          }}
-                        >
-                          <span className="artifact-no">
-                            藏品 / {String(a + 1).padStart(2, "0")}
-                          </span>
-                          <Beast type={a} />
-                          <h3>{ZODIAC[a]}首</h3>
-                          <span className="artifact-label">
-                            {room.phase === "vote"
-                              ? `${vote[i]} 票`
-                              : "圆明园十二生肖兽首"}
-                          </span>
-                          {selection.includes(a) && (
-                            <span className="selection-check">
-                              <Check size={14} />
+                        <div className="artifact-item" key={a}>
+                          <button
+                            aria-pressed={selection.includes(a)}
+                            className={
+                              "artifact " +
+                              (selection.includes(a) ? "selected" : "")
+                            }
+                            onClick={() => {
+                              if (room.phase === "vote") {
+                                setVote((v) => {
+                                  const n = [...v];
+                                  n[i] =
+                                    (n[i] + 1) %
+                                    ((privateData?.tokens || 0) + 1);
+                                  return n;
+                                });
+                              } else if (
+                                room.phase === "inspect" &&
+                                room.step === "inspect" &&
+                                !inspecting
+                              )
+                                setSelection((s) =>
+                                  s.includes(a)
+                                    ? s.filter((x) => x !== a)
+                                    : [...s, a].slice(
+                                        -(privateData?.role === "许愿" ? 2 : 1),
+                                      ),
+                                );
+                            }}
+                          >
+                            <span className="artifact-no">
+                              藏品 / {String(a + 1).padStart(2, "0")}
                             </span>
-                          )}
-                        </button>
+                            <Beast type={a} />
+                            <h3>{ZODIAC[a]}首</h3>
+                            <span className="artifact-label">
+                              {room.phase === "vote"
+                                ? `${vote[i]} 票`
+                                : "圆明园十二生肖兽首"}
+                            </span>
+                            {selection.includes(a) && (
+                              <span className="selection-check">
+                                <Check size={14} />
+                              </span>
+                            )}
+                          </button>
+                          {selection.includes(a) &&
+                            room.phase === "inspect" &&
+                            room.step === "inspect" && (
+                              <div className="artifact-actions">
+                                <button
+                                  className="primary compact"
+                                  disabled={
+                                    !isTurn ||
+                                    !privateData?.canInspect ||
+                                    inspecting ||
+                                    selection.length !==
+                                      (privateData?.role === "许愿" ? 2 : 1)
+                                  }
+                                  onClick={confirmInspection}
+                                >
+                                  {inspecting ? "鉴定中…" : "鉴定"}
+                                </button>
+                                <button
+                                  className="outline"
+                                  disabled={inspecting}
+                                  onClick={() => setSelection([])}
+                                >
+                                  取消
+                                </button>
+                              </div>
+                            )}
+                        </div>
                       ))}
                     </div>
                     <div className="action-panel">
@@ -1058,78 +1159,91 @@ function App() {
                           </p>
                           {isTurn &&
                             (room.step === "inspect" ? (
-                              <button
-                                className="primary compact"
-                                disabled={
-                                  privateData?.canInspect &&
-                                  selection.length !==
-                                    (privateData?.role === "许愿" ? 2 : 1)
-                                }
-                                onClick={() => {
-                                  act("inspect", {
-                                    artifacts: privateData?.canInspect
-                                      ? selection
-                                      : [],
-                                  });
-                                  setSelection([]);
-                                }}
-                              >
-                                {privateData?.canInspect
-                                  ? "确认鉴定"
-                                  : "继续行动"}{" "}
-                                <ScanLine size={17} />
-                              </button>
+                              privateData?.canInspect ? (
+                                <p className="inspection-hint">
+                                  {privateData.role === "许愿" &&
+                                  selection.length !== 2
+                                    ? "请选择两件不同兽首，再点击卡片下方的【鉴定】。"
+                                    : "点选兽首后，点击【鉴定】查看结果，或【取消】重新选择。"}
+                                </p>
+                              ) : (
+                                <button
+                                  className="primary compact"
+                                  disabled={inspecting}
+                                  onClick={confirmInspection}
+                                >
+                                  {privateData?.canInspect
+                                    ? "确认鉴定"
+                                    : "继续行动"}{" "}
+                                  <ScanLine size={17} />
+                                </button>
+                              )
                             ) : room.step === "skill" ? (
                               <div className="skill-controls">
-                                {privateData?.hasSkill && (
-                                  <>
-                                    <select
-                                      disabled={privateData?.role === "老朝奉"}
-                                      value={target}
-                                      onChange={(e) =>
-                                        setTarget(e.target.value)
+                                {privateData?.role === "老朝奉" &&
+                                privateData?.hasSkill ? (
+                                  reveal ? (
+                                    <p>请在身份栏选择是否发动技能。</p>
+                                  ) : (
+                                    <SkillDecision
+                                      onChoose={(skip) =>
+                                        act("skill", { skip })
                                       }
-                                    >
-                                      <option value="">选择技能目标</option>
-                                      {(["老朝奉", "郑国渠"].includes(
-                                        privateData?.role,
-                                      )
-                                        ? room.artifacts.map((a) => ({
-                                            id: String(a),
-                                            name: ZODIAC[a] + "首",
-                                          }))
-                                        : room.players.filter(
-                                            (p) => p.id !== id,
-                                          )
-                                      ).map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                          {p.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      className="primary compact"
-                                      disabled={
-                                        !target &&
-                                        privateData?.role !== "老朝奉"
-                                      }
-                                      onClick={() => {
-                                        act("skill", { target });
-                                        setTarget("");
-                                      }}
-                                    >
-                                      发动能力
-                                    </button>
-                                  </>
+                                    />
+                                  )
+                                ) : (
+                                  privateData?.hasSkill && (
+                                    <>
+                                      <select
+                                        value={target}
+                                        onChange={(e) =>
+                                          setTarget(e.target.value)
+                                        }
+                                      >
+                                        <option value="">选择技能目标</option>
+                                        {(privateData?.role === "郑国渠"
+                                          ? room.artifacts.map((a) => ({
+                                              id: String(a),
+                                              name: ZODIAC[a] + "首",
+                                            }))
+                                          : room.players.filter(
+                                              (p) => p.id !== id,
+                                            )
+                                        ).map((p) => (
+                                          <option key={p.id} value={p.id}>
+                                            {p.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        className="primary compact"
+                                        disabled={
+                                          !target &&
+                                          privateData?.role !== "老朝奉"
+                                        }
+                                        onClick={() => {
+                                          act("skill", { target });
+                                          setTarget("");
+                                        }}
+                                      >
+                                        发动能力
+                                      </button>
+                                    </>
+                                  )
                                 )}
-                                <button
-                                  className="outline"
-                                  onClick={() => act("skill", { skip: true })}
-                                >
-                                  {privateData?.hasSkill
-                                    ? "跳过能力"
-                                    : "继续，指定下家"}
-                                </button>
+                                {!(
+                                  privateData?.role === "老朝奉" &&
+                                  privateData?.hasSkill
+                                ) && (
+                                  <button
+                                    className="outline"
+                                    onClick={() => act("skill", { skip: true })}
+                                  >
+                                    {privateData?.hasSkill
+                                      ? "跳过能力"
+                                      : "继续，指定下家"}
+                                  </button>
+                                )}
                               </div>
                             ) : (
                               <div className="skill-controls">
@@ -1369,6 +1483,23 @@ function App() {
                 >
                   {modal === "create" ? "开局，静候同道" : "入席，赴约"}{" "}
                   <ArrowRight size={18} />
+                </button>
+              </>
+            ) : modal === "inspection" ? (
+              <>
+                <Seal small />
+                <span className="eyebrow">仅本人可见</span>
+                <h2>兽首鉴定结果</h2>
+                <div className="inspection-results">
+                  {privateData?.inspection?.map((result, i) => (
+                    <p key={i}>{result}</p>
+                  ))}
+                </div>
+                <p className="modal-note">
+                  结果已记入我的手札，请勿让他人窥屏。
+                </p>
+                <button className="primary" onClick={() => setModal(null)}>
+                  收好结果，继续行动 <ArrowRight size={17} />
                 </button>
               </>
             ) : modal === "video" ? (
