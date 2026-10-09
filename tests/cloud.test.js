@@ -263,6 +263,16 @@ test("云端传输：状态轮询、重连回席与事件处理兼容客户端",
     transport.on("roomDissolved", () => (dissolved = true));
     await api(store)(u, "dissolve", { code: state.code });
     await wait(() => dissolved);
+    const resumed = createCloudTransport({ fetcher, pollMs: 10 });
+    resumed.auth = { token: u.token };
+    let resumedDissolved = false;
+    resumed.on("roomDissolved", () => (resumedDissolved = true));
+    try {
+      resumed.emit("resume", { id: u.id, code: state.code });
+      await wait(() => resumedDissolved);
+    } finally {
+      resumed.disconnect();
+    }
   } finally {
     transport.disconnect();
   }
