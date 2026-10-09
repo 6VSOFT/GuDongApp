@@ -212,6 +212,20 @@ io.on("connection", (s) => {
     s.emit("left");
     save();
   });
+  on("dissolve", () => {
+    const [r, p] = ctx();
+    if (r.host !== p.id) throw Error("只有房主可以解散房间");
+    rooms.delete(r.code);
+    for (const member of r.players) {
+      const client = io.sockets.sockets.get(member.socketId);
+      if (!client) continue;
+      client.leave(r.code);
+      client.data.code = null;
+      client.data.player = null;
+      client.emit("roomDissolved");
+    }
+    save();
+  });
   s.on("disconnect", () => {
     const r = rooms.get(s.data.code);
     const p = r?.players.find((x) => x.id === s.data.player);

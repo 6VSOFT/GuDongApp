@@ -8,6 +8,7 @@ export function createCloudTransport({
   pollMs = 1800,
 } = {}) {
   const handlers = new Map();
+  const dissolvedCodes = new Set();
   let enabled = false,
     connected = false,
     timer,
@@ -54,7 +55,15 @@ export function createCloudTransport({
     }
     return result;
   }
-  function receive(result, enter = false) {
+  function receive(result, enter = false, sourceCode = code) {
+    if (result.dissolved) {
+      if (sourceCode) dissolvedCodes.add(sourceCode);
+      if (sourceCode !== code) return;
+      code = null;
+      revision = -1;
+      dispatch("roomDissolved");
+      return;
+    }
     if (result.left) {
       code = null;
       revision = -1;
@@ -63,6 +72,7 @@ export function createCloudTransport({
     }
     const r = result.state;
     if (!r) return;
+    if (dissolvedCodes.has(r.code)) return;
     if (r.code !== code) {
       code = r.code;
       revision = -1;
@@ -86,8 +96,10 @@ export function createCloudTransport({
         status(true);
       }
       if (code && id) {
-        const result = await request("state", { code, id });
-        if (enabled && epoch === currentEpoch) receive(result);
+        const sourceCode = code;
+        const result = await request("state", { code: sourceCode, id });
+        if (enabled && epoch === currentEpoch)
+          receive(result, false, sourceCode);
       }
     } catch (e) {
       if (!enabled || epoch !== currentEpoch) return;
@@ -139,7 +151,11 @@ export function createCloudTransport({
           const result = await request(event, data);
           if (epoch !== currentEpoch) return;
           id = data.id || id;
-          receive(result, ["create", "join", "resume"].includes(event));
+          receive(
+            result,
+            ["create", "join", "resume"].includes(event),
+            data.code || code,
+          );
         } catch (e) {
           if (epoch !== currentEpoch) return;
           if (event === "resume" && (e.status === 403 || e.status === 404))

@@ -194,6 +194,41 @@ test("Netlify 旧房间未结束的公开讨论直接转投票；超额票与越
   );
   assert.equal((await send(user(), "start", { code })).status, 403);
 });
+test("房主解散进行中的房间：全员退出、无法回席、可重新开局", async () => {
+  const store = memoryStore(),
+    send = api(store),
+    users = Array.from({ length: 6 }, user);
+  const created = await send(users[0], "create", { count: 6 });
+  const code = created.state.code;
+  for (const u of users.slice(1)) await send(u, "join", { code });
+  for (const u of users) await send(u, "ready", { code });
+  await send(users[0], "start", { code });
+  assert.equal((await send(users[1], "dissolve", { code })).status, 403);
+  assert.equal(
+    (await send(users[0], "state", { code })).state.phase,
+    "inspect",
+  );
+  const requestId = randomUUID();
+  assert.equal(
+    (await send(users[0], "dissolve", { code }, requestId)).dissolved,
+    true,
+  );
+  assert.equal(
+    (await send(users[0], "dissolve", { code }, requestId)).dissolved,
+    true,
+  );
+  for (const u of users) {
+    assert.equal((await send(u, "state", { code })).dissolved, true);
+    assert.equal((await send(u, "resume", { code })).dissolved, true);
+    assert.equal(
+      (await send(u, "vote", { code, votes: [0, 0, 0, 0] })).dissolved,
+      true,
+    );
+    assert.equal((await send(u, "create", { count: 6 })).status, 200);
+  }
+  assert.equal((await send(user(), "join", { code })).status, 404);
+});
+
 test("云端传输：状态轮询、重连回席与事件处理兼容客户端", async () => {
   const store = memoryStore(),
     u = user(),
@@ -224,8 +259,10 @@ test("云端传输：状态轮询、重连回席与事件处理兼容客户端",
     assert.ok(secret);
     transport.emit("ready", { id: u.id, code: state.code });
     await wait(() => state.players[0].ready);
-    transport.emit("leave", { id: u.id, code: state.code });
-    await new Promise((r) => setTimeout(r, 30));
+    let dissolved = false;
+    transport.on("roomDissolved", () => (dissolved = true));
+    await api(store)(u, "dissolve", { code: state.code });
+    await wait(() => dissolved);
   } finally {
     transport.disconnect();
   }

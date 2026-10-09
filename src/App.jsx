@@ -273,11 +273,35 @@ function App() {
     setToast(t);
     setTimeout(() => setToast(""), 3500);
   };
+  const exitRoom = () => {
+    localStorage.removeItem("gudong-room");
+    activeRoomCode.current = null;
+    awaitingInspection.current = false;
+    awaitingCamp.current = false;
+    awaitingVote.current = false;
+    setVoteSubmitting(false);
+    setInspecting(false);
+    setRoom(null);
+    setPrivate(null);
+    setDemo(false);
+    setReveal(false);
+    setSelection([]);
+    setTarget("");
+    setVote([0, 0, 0, 0]);
+    setVoteSnapshot(null);
+    setPage("home");
+    setModal(null);
+  };
   useEffect(() => {
     socket.auth = { token: localStorage.getItem("gudong-token") || uuid() };
     localStorage.setItem("gudong-token", socket.auth.token);
     socket.connect();
-    socket.on("roomExpired", () => localStorage.removeItem("gudong-room"));
+    socket.on("roomExpired", exitRoom);
+    socket.on("left", exitRoom);
+    socket.on("roomDissolved", () => {
+      exitRoom();
+      notify("房主已解散房间，本局游戏已结束");
+    });
     socket.on("connect", () => {
       setConnected(true);
       const saved = localStorage.getItem("gudong-room");
@@ -1495,6 +1519,14 @@ function App() {
               <LogOut size={15} />
               {demo ? "结束演示" : "离开房间"}
             </button>
+            {!demo && room.host === id && (
+              <button
+                className="text-link leave"
+                onClick={() => setModal("dissolve")}
+              >
+                <X size={15} /> 解散房间
+              </button>
+            )}
           </div>
         )}
       </main>
@@ -1672,6 +1704,28 @@ function App() {
                     ? "分享链接，或让同道扫码、输入房间号入席。"
                     : "同一 Wi-Fi 的玩家扫码或输入房间号入席。"}
                 </p>
+              </>
+            ) : modal === "dissolve" ? (
+              <>
+                <h2>解散房间？</h2>
+                <p>
+                  解散后，本局游戏立即结束，全体玩家将返回首页，无法重新加入此房间。
+                </p>
+                <div className="skill-controls">
+                  <button
+                    className="primary"
+                    disabled={!connected}
+                    onClick={() => {
+                      setModal(null);
+                      act("dissolve");
+                    }}
+                  >
+                    确认解散
+                  </button>
+                  <button className="outline" onClick={() => setModal(null)}>
+                    取消
+                  </button>
+                </div>
               </>
             ) : modal === "leave" ? (
               <>

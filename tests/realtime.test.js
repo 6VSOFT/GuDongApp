@@ -84,6 +84,9 @@ test(
           reconnect.private.role,
       );
       assert.ok(reconnect.private.role);
+      clients[1].socket.emit("dissolve");
+      await until(() => clients[1].error);
+      assert.match(clients[1].error, /只有房主/);
       let actions = 0;
       while (host.state.phase !== "finished") {
         assert.ok(actions++ < 200, "流程不能无限循环");
@@ -158,6 +161,20 @@ test(
           return false;
         }
       });
+      for (const c of clients)
+        c.socket.on("roomDissolved", () => (c.dissolved = true));
+      host.socket.emit("dissolve");
+      await until(() => clients.every((c) => c.dissolved));
+      host.error = null;
+      host.socket.emit("ready");
+      await until(() => host.error);
+      assert.match(host.error, /请先加入房间/);
+      for (const c of clients)
+        c.socket.on("roomExpired", () => (c.expired = true));
+      for (const c of clients) c.socket.emit("resume", { code, id: c.id });
+      await until(() => clients.every((c) => c.expired));
+      host.socket.emit("create", { id: host.id, name: host.name, count: 6 });
+      await until(() => host.state.code !== code);
     } finally {
       clients.forEach((c) => c.socket.disconnect());
       child.kill();
