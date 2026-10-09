@@ -206,6 +206,45 @@ test("Netlify 旧房间未结束的公开讨论直接转投票；超额票与越
   );
   assert.equal((await send(user(), "start", { code })).status, 403);
 });
+test("加入新房间自动退出旧房间；失败保留原登录，重试不重复入座", async () => {
+  const store = memoryStore(),
+    send = api(store),
+    host = user(),
+    guest = user(),
+    nextHost = user();
+  const old = (await send(host, "create", { count: 6 })).state.code;
+  await send(guest, "join", { code: old });
+  assert.equal((await send(guest, "join", { code: "000000" })).status, 404);
+  assert.equal((await send(guest, "state", { code: old })).status, 200);
+  const next = (await send(nextHost, "create", { count: 6 })).state.code;
+  const request = randomUUID();
+  assert.equal(
+    (await send(guest, "join", { code: next }, request)).status,
+    200,
+  );
+  assert.equal(
+    (await send(guest, "join", { code: next }, request)).state.players.length,
+    2,
+  );
+  assert.equal(
+    (await send(host, "state", { code: old })).state.players.length,
+    1,
+  );
+  assert.equal((await send(guest, "resume", { code: old })).status, 403);
+  assert.equal((await send(guest, "ready", { code: next })).status, 200);
+  // Switching from an ongoing game keeps the game seat but revokes its login.
+  store.entries.get("rooms/" + next).data.phase = "inspect";
+  const thirdHost = user(),
+    third = (await send(thirdHost, "create", { count: 6 })).state.code;
+  assert.equal((await send(guest, "join", { code: third })).status, 200);
+  const previous = store.entries
+    .get("rooms/" + next)
+    .data.players.find((p) => p.id === guest.id);
+  assert.equal(previous.online, false);
+  assert.equal(previous.auth, null);
+  assert.equal((await send(guest, "resume", { code: next })).status, 403);
+});
+
 test("24 小时无操作自动解散：轮询和回席不续期，有效操作续期，旧房间兼容", async () => {
   const store = memoryStore(),
     send = api(store),

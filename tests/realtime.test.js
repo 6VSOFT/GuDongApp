@@ -230,6 +230,32 @@ test(
       await until(() => clients.every((c) => c.expired));
       host.socket.emit("create", { id: host.id, name: host.name, count: 6 });
       await until(() => host.state.code !== code);
+      const previousCode = host.state.code;
+      host.error = null;
+      host.socket.emit("join", {
+        code: "000000",
+        id: host.id,
+        name: host.name,
+      });
+      await until(() => host.error);
+      assert.equal(host.state.code, previousCode);
+      const nextHost = clients[1];
+      nextHost.socket.emit("create", {
+        id: nextHost.id,
+        name: nextHost.name,
+        count: 6,
+      });
+      await until(() => nextHost.state.code !== code);
+      host.socket.emit("join", {
+        code: nextHost.state.code,
+        id: host.id,
+        name: host.name,
+      });
+      await until(() => host.state.code === nextHost.state.code);
+      assert.equal(host.state.players.length, 2);
+      host.expired = false;
+      host.socket.emit("resume", { code: previousCode, id: host.id });
+      await until(() => host.expired);
     } finally {
       clients.forEach((c) => c.socket.disconnect());
       child.kill();

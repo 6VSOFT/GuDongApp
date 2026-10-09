@@ -9,6 +9,7 @@ export function createCloudTransport({
 } = {}) {
   const handlers = new Map();
   const dissolvedCodes = new Set();
+  let joining = false;
   let enabled = false,
     connected = false,
     timer,
@@ -72,6 +73,7 @@ export function createCloudTransport({
     }
     const r = result.state;
     if (!r) return;
+    if (!enter && r.code !== code) return;
     if (dissolvedCodes.has(r.code)) return;
     if (r.code !== code) {
       code = r.code;
@@ -85,6 +87,7 @@ export function createCloudTransport({
   async function poll() {
     if (!enabled) return;
     const currentEpoch = epoch;
+    const pollCode = code;
     try {
       if (!connected) {
         const response = await fetcher(endpoint, {
@@ -95,14 +98,20 @@ export function createCloudTransport({
         if (!enabled || epoch !== currentEpoch) return;
         status(true);
       }
-      if (code && id) {
+      if (code && id && !joining) {
         const sourceCode = code;
         const result = await request("state", { code: sourceCode, id });
-        if (enabled && epoch === currentEpoch)
+        if (
+          enabled &&
+          epoch === currentEpoch &&
+          !joining &&
+          code === sourceCode
+        )
           receive(result, false, sourceCode);
       }
     } catch (e) {
       if (!enabled || epoch !== currentEpoch) return;
+      if (joining || pollCode !== code) return;
       if (e.status === 404 || e.status === 403) {
         code = null;
         dispatch("roomExpired");
@@ -145,6 +154,7 @@ export function createCloudTransport({
       status(false);
     },
     emit(event, data = {}) {
+      if (event === "join") joining = true;
       const currentEpoch = epoch;
       queue = queue.then(async () => {
         try {
@@ -165,6 +175,8 @@ export function createCloudTransport({
             e.status ? e.message : "网络连接中断，请重试",
           );
           if (!e.status) status(false);
+        } finally {
+          if (event === "join") joining = false;
         }
       });
       return instance;

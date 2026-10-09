@@ -316,7 +316,12 @@ function App() {
       setRoom(r);
       setDemo(false);
       localStorage.setItem("gudong-room", r.code);
-      if (activeRoomCode.current !== r.code || r._enter) setModal(null);
+      if (activeRoomCode.current !== r.code || r._enter) {
+        setModal(null);
+        setReveal(false);
+        setSelection([]);
+        setTarget("");
+      }
       activeRoomCode.current = r.code;
       if (r._enter || r.version === undefined) setPage("game");
     });

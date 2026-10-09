@@ -8,6 +8,7 @@ import { networkInterfaces } from "node:os";
 import { fileURLToPath } from "node:url";
 import * as game from "./game.js";
 import { isInactive } from "./lib/room-lifecycle.js";
+import { removeLogin } from "./lib/room-membership.js";
 const base = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
@@ -67,6 +68,24 @@ function attach(s, r, p) {
   s.data.player = p.id;
   s.join(r.code);
   emit(r);
+}
+function leavePrevious(s, destination) {
+  for (const r of rooms.values()) {
+    if (r.code === destination) continue;
+    const p = r.players.find((p) => p.auth === s.data.auth);
+    if (!p) continue;
+    const client = io.sockets.sockets.get(p.socketId);
+    if (client) {
+      client.leave(r.code);
+      client.data.code = null;
+      client.data.player = null;
+      if (client !== s) client.emit("left");
+    }
+    removeLogin(r, s.data.auth);
+    if (r.phase === "closed") rooms.delete(r.code);
+    else emit(r);
+  }
+  save();
 }
 const hash = (x) => createHash("sha256").update(x).digest("hex");
 io.use((s, next) => {
@@ -156,15 +175,16 @@ io.on("connection", (s) => {
     const existing = r.players.find((p) => p.id === d.id);
     if (existing) {
       if (existing.auth !== s.data.auth) throw Error("会话不匹配");
+      leavePrevious(s, r.code);
       return attach(s, r, existing);
     }
-    ensureFree();
     if (r.phase !== "lobby") throw Error("对局已开始，无法中途加入");
     if (r.players.length >= r.count) throw Error("此局已满员");
     const color = Array.from({ length: r.count }, (_, i) => i).find(
       (i) => !r.players.some((p) => p.color === i),
     );
     const p = player(d, color);
+    leavePrevious(s, r.code);
     r.players.push(p);
     r.lastActionAt = Date.now();
     r.logs.push(p.name + " 已入席。");
