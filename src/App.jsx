@@ -872,13 +872,15 @@ function App() {
                 </article>
               ))}
             </div>
-            <button
+            <a
               className="primary compact"
-              onClick={() => setModal("video")}
+              href="https://www.youtube.com/watch?v=a1scG0iv0cM"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               <BookOpen size={17} />
               观看原版教学视频
-            </button>
+            </a>
             <div className="section-title">
               <h3>八人入局，各有所长</h3>
             </div>
