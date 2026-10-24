@@ -31,6 +31,7 @@ import {
 import QRCode from "qrcode";
 import * as engine from "../game.js";
 import "./style.css";
+import { displayText, localizeTree } from "./language.js";
 const socket =
   import.meta.env.VITE_DEPLOY_TARGET === "netlify"
     ? createCloudTransport()
@@ -190,8 +191,8 @@ function Beast({ type = 4, large = false }) {
     </svg>
   );
 }
-function SkillDecision({ onChoose, disabled = false }) {
-  return (
+function SkillDecision({ onChoose, disabled = false, language }) {
+  return localizeTree(
     <div
       className="skill-decision"
       role="group"
@@ -212,11 +213,17 @@ function SkillDecision({ onChoose, disabled = false }) {
       >
         否，不发动
       </button>
-    </div>
+    </div>,
+    language,
   );
 }
 function App() {
   const [page, setPage] = useState("home"),
+    [language, setLanguage] = useState(
+      localStorage.getItem("gudong-language") === "zh-Hant"
+        ? "zh-Hant"
+        : "zh-Hans",
+    ),
     [modal, setModal] = useState(null),
     [count, setCount] = useState(8),
     [name, setName] = useState(localStorage.getItem("gudong-name") || ""),
@@ -241,6 +248,11 @@ function App() {
       localStorage.getItem("gudong-sound") !== "off",
     ),
     [qr, setQr] = useState("");
+  useEffect(() => {
+    localStorage.setItem("gudong-language", language);
+    document.documentElement.lang = language;
+    document.title = displayText("古董局中局 · 入局", language);
+  }, [language]);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [page]);
@@ -615,7 +627,7 @@ function App() {
     !privateData?.history?.some(
       (h) => h.round === room.round && h.artifact === null,
     );
-  return (
+  return localizeTree(
     <div className="app">
       <aside className="sidebar">
         <a className="brand" onClick={() => setPage("home")}>
@@ -1189,6 +1201,7 @@ function App() {
                       <>
                         {privateData.hasSkill ? (
                           <SkillDecision
+                            language={language}
                             disabled={room.step !== "skill" || inspecting}
                             onChoose={(skip) => act("skill", { skip })}
                           />
@@ -1423,6 +1436,7 @@ function App() {
                                     <p>请在身份栏选择是否发动技能。</p>
                                   ) : (
                                     <SkillDecision
+                                      language={language}
                                       onChoose={(skip) =>
                                         act("skill", { skip })
                                       }
@@ -1863,6 +1877,21 @@ function App() {
             ) : modal === "settings" ? (
               <>
                 <h2>偏好设置</h2>
+                <label className="language-setting">
+                  <span>界面语言</span>
+                  <select
+                    aria-label="界面语言"
+                    value={language}
+                    onChange={(event) => setLanguage(event.target.value)}
+                  >
+                    <option value="zh-Hans" translate="no">
+                      简体中文
+                    </option>
+                    <option value="zh-Hant" translate="no">
+                      繁體中文
+                    </option>
+                  </select>
+                </label>
                 <button
                   className="setting-row"
                   onClick={() => {
@@ -1918,7 +1947,8 @@ function App() {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    language,
   );
 }
 const PHASE_NAMES = {

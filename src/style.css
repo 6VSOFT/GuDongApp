@@ -734,6 +734,19 @@ footer button {
 .qa-page {
   max-width: 1100px;
 }
+.language-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 24px 0 18px;
+  font-size: 13px;
+}
+.language-setting select {
+  width: auto;
+  min-width: 145px;
+  margin: 0;
+}
 .qa-principle {
   display: flex;
   gap: 14px;
