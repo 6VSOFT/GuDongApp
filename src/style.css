@@ -831,6 +831,22 @@ footer button {
   padding: 25px 10px;
   border-bottom: 1px solid var(--line);
 }
+.role-portrait {
+  width: 112px;
+  height: 112px;
+  flex: 0 0 112px;
+  object-fit: cover;
+  border: 1px solid #d9d4c4;
+  border-radius: 5px;
+  background: #f7f4ea;
+}
+@media (max-width: 700px) {
+  .role-portrait {
+    width: 88px;
+    height: 88px;
+    flex-basis: 88px;
+  }
+}
 .role-seal {
   background: #eee0cf;
   border: 1px solid #dcc5aa;

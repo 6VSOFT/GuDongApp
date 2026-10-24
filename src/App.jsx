@@ -916,9 +916,22 @@ function App() {
             <div className="role-list">
               {Object.entries(ROLE_INFO).map(([n, d], i) => (
                 <div key={n}>
-                  <span className={"role-seal " + (i > 4 ? "dark" : "")}>
-                    {n[0]}
-                  </span>
+                  <img
+                    className="role-portrait"
+                    src={rolePortrait(n)}
+                    alt={`${n}角色插画`}
+                    width={112}
+                    height={112}
+                    loading="lazy"
+                    decoding="async"
+                    onError={(event) => {
+                      if (
+                        event.currentTarget.getAttribute("src") !==
+                        ROLE_PORTRAITS[n]
+                      )
+                        event.currentTarget.src = ROLE_PORTRAITS[n];
+                    }}
+                  />
                   <section>
                     <h4>
                       {n}
@@ -2161,5 +2174,21 @@ const PHASE_NAMES = {
   guess: "辨人识心",
 };
 const ROLE_INFO = engine.ROLE_INFO;
+const ROLE_PORTRAITS = {
+  许愿: "/roles/xuyuan.png",
+  方震: "/roles/fangzhen.png",
+  黄烟烟: "/roles/huangyanyan.png",
+  木户加奈: "/roles/muhujianai.png",
+  姬云浮: "/roles/jiyunfu.png",
+  老朝奉: "/roles/laochaofeng.png",
+  药不然: "/roles/yaoburan.png",
+  郑国渠: "/roles/zhengguoqu.png",
+};
+function rolePortrait(role) {
+  const source = ROLE_PORTRAITS[role];
+  return import.meta.env.VITE_DEPLOY_TARGET === "netlify"
+    ? `/.netlify/images?url=${encodeURIComponent(source)}&w=256&h=256&fit=cover&q=80`
+    : source;
+}
 export default App;
 if (import.meta.hot) import.meta.hot.dispose(() => socket.disconnect());
