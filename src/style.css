@@ -1211,6 +1211,33 @@ footer button {
   max-width: 720px;
   text-align: left;
 }
+.result-board {
+  position: relative;
+}
+.copy-result {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+.report-text {
+  width: 100%;
+  min-height: 300px;
+  resize: vertical;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: #fffdf7;
+  color: var(--ink);
+  font: 13px/1.8 sans-serif;
+}
+@media (max-width: 700px) {
+  .result-board {
+    padding-top: 80px;
+  }
+  .copy-result {
+    top: 16px;
+    right: 16px;
+  }
+}
 .protection-records {
   margin-top: 38px;
 }

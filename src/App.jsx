@@ -234,6 +234,7 @@ function App() {
     [privateData, setPrivate] = useState(null),
     [connected, setConnected] = useState(false),
     [toast, setToast] = useState(""),
+    [reportText, setReportText] = useState(""),
     [updateAvailable, setUpdateAvailable] = useState(false),
     [demo, setDemo] = useState(false),
     [reveal, setReveal] = useState(false),
@@ -257,6 +258,7 @@ function App() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [page]);
   const demoEngine = useRef(null);
+  const resultContent = useRef(null);
   const awaitingInspection = useRef(false);
   const awaitingCamp = useRef(false);
   const awaitingVote = useRef(false);
@@ -285,6 +287,18 @@ function App() {
   const notify = (t) => {
     setToast(t);
     setTimeout(() => setToast(""), 3500);
+  };
+  const copyResult = async () => {
+    if (room?.phase !== "finished" || !resultContent.current) return;
+    const text = `${displayText("古董局中局 · 终局战报", language)}\n${displayText("房间", language)} ${room.code}\n\n${resultContent.current.innerText.trim()}`;
+    try {
+      if (!navigator.clipboard?.writeText) throw Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(text);
+      notify("终局战报已复制到剪贴板");
+    } catch {
+      setReportText(text);
+      setModal("copyResult");
+    }
   };
   const exitRoom = () => {
     localStorage.removeItem("gudong-room");
@@ -1302,94 +1316,103 @@ function App() {
                     )}
                 </div>
                 {room.phase === "finished" ? (
-                  <div className="lobby-board">
-                    <Seal />
-                    <h2>{room.winner}获胜</h2>
-                    <p>许愿阵营最终得分 {room.score} 分 · 达到 6 分获胜</p>
-                    <section
-                      className="score-details"
-                      aria-label="终局得分明细"
+                  <div className="lobby-board result-board">
+                    <button
+                      className="outline copy-result"
+                      onClick={copyResult}
                     >
-                      <h3>得分明细</h3>
-                      {room.scoreBreakdown ? (
-                        <div className="score-table-wrap">
-                          <table>
-                            <thead>
-                              <tr>
-                                <th scope="col">计分项目</th>
-                                <th scope="col">本局结果</th>
-                                <th scope="col">得分</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {[
-                                [
-                                  "找回真品",
-                                  `找回 ${room.scoreBreakdown.antiques} 件真品，每件 1 分`,
-                                  room.scoreBreakdown.antiques,
-                                  6,
-                                ],
-                                [
-                                  "许愿身份保护",
-                                  room.scoreBreakdown.xu
-                                    ? "许愿未被老朝奉找到"
-                                    : "许愿被老朝奉找到",
-                                  room.scoreBreakdown.xu,
-                                  2,
-                                ],
-                                [
-                                  "方震身份保护",
-                                  room.scoreBreakdown.fang
-                                    ? "方震未被药不然找到"
-                                    : "方震被药不然找到",
-                                  room.scoreBreakdown.fang,
-                                  1,
-                                ],
-                                [
-                                  "指认老朝奉",
-                                  room.scoreBreakdown.chief
-                                    ? "许愿阵营相对多数正确指认"
-                                    : "未成功指认（含最高票并列）",
-                                  room.scoreBreakdown.chief,
-                                  1,
-                                ],
-                              ].map(([label, result, points, maximum]) => (
-                                <tr key={label}>
-                                  <th scope="row">{label}</th>
-                                  <td>{result}</td>
+                      <Copy size={16} />
+                      复制战报
+                    </button>
+                    <Seal />
+                    <div ref={resultContent}>
+                      <h2>{room.winner}获胜</h2>
+                      <p>许愿阵营最终得分 {room.score} 分 · 达到 6 分获胜</p>
+                      <section
+                        className="score-details"
+                        aria-label="终局得分明细"
+                      >
+                        <h3>得分明细</h3>
+                        {room.scoreBreakdown ? (
+                          <div className="score-table-wrap">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th scope="col">计分项目</th>
+                                  <th scope="col">本局结果</th>
+                                  <th scope="col">得分</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[
+                                  [
+                                    "找回真品",
+                                    `找回 ${room.scoreBreakdown.antiques} 件真品，每件 1 分`,
+                                    room.scoreBreakdown.antiques,
+                                    6,
+                                  ],
+                                  [
+                                    "许愿身份保护",
+                                    room.scoreBreakdown.xu
+                                      ? "许愿未被老朝奉找到"
+                                      : "许愿被老朝奉找到",
+                                    room.scoreBreakdown.xu,
+                                    2,
+                                  ],
+                                  [
+                                    "方震身份保护",
+                                    room.scoreBreakdown.fang
+                                      ? "方震未被药不然找到"
+                                      : "方震被药不然找到",
+                                    room.scoreBreakdown.fang,
+                                    1,
+                                  ],
+                                  [
+                                    "指认老朝奉",
+                                    room.scoreBreakdown.chief
+                                      ? "许愿阵营相对多数正确指认"
+                                      : "未成功指认（含最高票并列）",
+                                    room.scoreBreakdown.chief,
+                                    1,
+                                  ],
+                                ].map(([label, result, points, maximum]) => (
+                                  <tr key={label}>
+                                    <th scope="row">{label}</th>
+                                    <td>{result}</td>
+                                    <td>
+                                      <strong>{points}</strong> / {maximum} 分
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr>
+                                  <th scope="row" colSpan={2}>
+                                    许愿阵营总分
+                                  </th>
                                   <td>
-                                    <strong>{points}</strong> / {maximum} 分
+                                    <strong>{room.score}</strong> 分
                                   </td>
                                 </tr>
-                              ))}
-                            </tbody>
-                            <tfoot>
-                              <tr>
-                                <th scope="row" colSpan={2}>
-                                  许愿阵营总分
-                                </th>
-                                <td>
-                                  <strong>{room.score}</strong> 分
-                                </td>
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                      ) : room.score === 6 ? (
-                        <p className="score-direct-win">
-                          找回 6 件真品，获得 6
-                          分并直接获胜；未进入鉴人阶段，不计算身份指认加分。
-                        </p>
-                      ) : (
-                        <p>此旧对局未保存得分明细。</p>
-                      )}
-                    </section>
-                    <div className="revealed-roles">
-                      {room.revealed?.map((p) => (
-                        <span key={p.id}>
-                          {p.name} · {p.role}
-                        </span>
-                      ))}
+                              </tfoot>
+                            </table>
+                          </div>
+                        ) : room.score === 6 ? (
+                          <p className="score-direct-win">
+                            找回 6 件真品，获得 6
+                            分并直接获胜；未进入鉴人阶段，不计算身份指认加分。
+                          </p>
+                        ) : (
+                          <p>此旧对局未保存得分明细。</p>
+                        )}
+                      </section>
+                      <div className="revealed-roles">
+                        {room.revealed?.map((p) => (
+                          <span key={p.id}>
+                            {p.name} · {p.role}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ) : room.phase === "guess" ? (
@@ -2038,6 +2061,19 @@ function App() {
                 >
                   确认离开
                 </button>
+              </>
+            ) : modal === "copyResult" ? (
+              <>
+                <h2>复制终局战报</h2>
+                <p>未能自动复制，请全选或长按复制以下文字。</p>
+                <textarea
+                  className="report-text"
+                  aria-label="终局战报内容"
+                  value={reportText}
+                  readOnly
+                  autoFocus
+                  onFocus={(event) => event.target.select()}
+                />
               </>
             ) : modal === "settings" ? (
               <>
