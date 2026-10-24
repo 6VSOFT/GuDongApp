@@ -1034,6 +1034,67 @@ function App() {
                 </button>
               </div>
             )}
+            {room && room.phase !== "lobby" && (
+              <section className="protection-records" aria-label="每轮护宝记录">
+                <div className="section-title">
+                  <h3>每轮护宝记录</h3>
+                </div>
+                <p className="protection-note">
+                  每轮保护票数前两名的兽首。第二名真伪公开，第一名真伪在终局揭晓。
+                </p>
+                <div className="protection-grid">
+                  {[1, 2, 3].map((round) => {
+                    const items =
+                      room.protectionHistory?.filter(
+                        (item) => item.round === round,
+                      ) || [];
+                    return (
+                      <article className="protection-card" key={round}>
+                        <h3>第{["一", "二", "三"][round - 1]}轮</h3>
+                        {items.length ? (
+                          items.map((item) => (
+                            <div className="protected-item" key={item.artifact}>
+                              <div>
+                                <span className="protection-rank">
+                                  第 {item.rank} 名
+                                </span>
+                                <strong>{ZODIAC[item.artifact]}首</strong>
+                              </div>
+                              <div className="protection-result">
+                                {Number.isInteger(item.votes) && (
+                                  <small>{item.votes} 票</small>
+                                )}
+                                <span
+                                  className={
+                                    item.truth === null
+                                      ? "unknown"
+                                      : item.truth
+                                        ? "genuine"
+                                        : "fake"
+                                  }
+                                >
+                                  {item.truth === null
+                                    ? "真伪未公开"
+                                    : item.truth
+                                      ? "真品"
+                                      : "赝品"}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="protection-pending">
+                            {round > room.round
+                              ? "尚未开始"
+                              : "等待本轮投票结算"}
+                          </p>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           <div className="content game">

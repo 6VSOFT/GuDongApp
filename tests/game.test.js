@@ -95,6 +95,14 @@ for (const n of [6, 7, 8])
       for (const p of r.players) g.vote(r, p, [0, 0, 0, 0]);
       assert.equal(r.phase, "result");
       assert.equal(r.result.filter((a) => a.truth !== null).length, 1);
+      const protection = g.publicState(r).protectionHistory;
+      assert.equal(protection.length, round * 2);
+      assert.equal(protection.at(-2).round, round);
+      assert.equal(protection.at(-2).rank, 1);
+      assert.equal(protection.at(-2).truth, null);
+      assert.equal(typeof protection.at(-1).truth, "boolean");
+      assert.equal(protection.at(-1).rank, 2);
+      assert.equal(protection.at(-1).votes, 0);
       for (const p of r.players) g.continueGame(r, p);
     }
     assert.equal(r.phase, "guess");
@@ -103,6 +111,13 @@ for (const n of [6, 7, 8])
       g.guess(r, p, r.players.find((q) => q.id !== p.id).id);
     assert.equal(r.phase, "finished");
     assert.ok(r.winner);
+    assert.equal(
+      g
+        .publicState(r)
+        .protectionHistory.filter((item) => typeof item.truth === "boolean")
+        .length,
+      6,
+    );
   });
 test("公开状态不泄露身份、真伪、私密技能及第一名真伪", () => {
   const r = setup();
@@ -117,6 +132,33 @@ test("公开状态不泄露身份、真伪、私密技能及第一名真伪", ()
   assert.equal(g.publicState(r).result[0].truth, null);
   assert.equal(g.publicState(r).result[1].truth, r.truth[r.result[1].artifact]);
 });
+test("旧对局护宝记录按每轮两件恢复，终局前不泄露第一名真伪", () => {
+  const r = setup();
+  r.protected = [
+    { artifact: 0, truth: true },
+    { artifact: 1, truth: false },
+    { artifact: 2, truth: false },
+    { artifact: 3, truth: true },
+  ];
+  const original = structuredClone(r.protected);
+  const items = g.publicState(r).protectionHistory;
+  assert.deepEqual(
+    items.map((item) => [item.round, item.rank, item.artifact, item.truth]),
+    [
+      [1, 1, 0, null],
+      [1, 2, 1, false],
+      [2, 1, 2, null],
+      [2, 2, 3, true],
+    ],
+  );
+  assert.deepEqual(r.protected, original);
+  r.phase = "finished";
+  assert.deepEqual(
+    g.publicState(r).protectionHistory.map((item) => item.truth),
+    [true, false, false, true],
+  );
+});
+
 test("仅老朝奉和药不然互认，郑国渠不知队友", () => {
   const r = setup();
   for (const p of r.players)

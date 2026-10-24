@@ -1211,6 +1211,69 @@ footer button {
   max-width: 720px;
   text-align: left;
 }
+.protection-records {
+  margin-top: 38px;
+}
+.protection-note {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #858a78;
+  margin-bottom: 20px;
+}
+.protection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 18px;
+}
+.protection-card {
+  background: #fffdf7;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 22px;
+}
+.protection-card h3 {
+  font: 21px var(--serif);
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.protected-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 20px;
+}
+.protected-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.protection-rank,
+.protection-result small {
+  font-size: 10px;
+  color: #999b8a;
+}
+.protected-item strong {
+  font: 20px var(--serif);
+}
+.protection-result {
+  text-align: right;
+  font-size: 12px;
+}
+.protection-result .unknown,
+.protection-pending {
+  color: #929782;
+  font-size: 12px;
+}
+.protection-result .genuine {
+  color: #547560;
+}
+.protection-result .fake {
+  color: #a64c40;
+}
+.protection-pending {
+  margin-top: 24px;
+}
 .score-details h3 {
   font: 22px var(--serif);
   margin: 0 0 16px;

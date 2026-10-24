@@ -291,7 +291,11 @@ export function settleRound(r) {
     ...(r.protected || []),
     ...totals
       .slice(0, 2)
-      .map((x) => ({ artifact: x.artifact, truth: r.truth[x.artifact] })),
+      .map((x) => ({
+        artifact: x.artifact,
+        truth: r.truth[x.artifact],
+        votes: x.votes,
+      })),
   ];
   r.result = totals.map((x, i) => ({
     ...x,
@@ -387,6 +391,13 @@ export function publicState(r) {
     speechIndex: r.speechIndex,
     voteCount: Object.keys(r.votes || {}).length,
     result: r.result,
+    protectionHistory: (r.protected || []).map((item, index) => ({
+      round: Math.floor(index / 2) + 1,
+      rank: (index % 2) + 1,
+      artifact: item.artifact,
+      votes: item.votes,
+      truth: r.phase === "finished" || index % 2 === 1 ? item.truth : null,
+    })),
     ackCount: r.acks?.length || 0,
     winner: r.winner,
     scoreBreakdown: r.phase === "finished" ? r.scoreBreakdown : null,
