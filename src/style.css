@@ -794,6 +794,13 @@ footer button {
   line-height: 1.8;
   color: #a24b3d;
 }
+.qa-card .qa-implementation {
+  padding: 12px 14px;
+  margin-top: 14px;
+  background: #f4f0e7;
+  border-left: 2px solid #b89a69;
+  font-size: 12px;
+}
 .rule-card {
   padding: 27px;
   border: 1px solid var(--line);
