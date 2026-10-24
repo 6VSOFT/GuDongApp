@@ -921,9 +921,7 @@ function App() {
             <div className="page-heading">
               <span className="eyebrow">局中答疑</span>
               <h1>规则 QA</h1>
-              <p>
-                按本 App 当前对局逻辑解答 · 前后位置以实际行动先后为准
-              </p>
+              <p>按本 App 当前对局逻辑解答 · 前后位置以实际行动先后为准</p>
             </div>
             <aside className="qa-principle">
               <ShieldCheck size={22} />
@@ -1246,7 +1244,85 @@ function App() {
                   <div className="lobby-board">
                     <Seal />
                     <h2>{room.winner}获胜</h2>
-                    <p>最终得分 {room.score} / 6</p>
+                    <p>许愿阵营最终得分 {room.score} 分 · 达到 6 分获胜</p>
+                    <section
+                      className="score-details"
+                      aria-label="终局得分明细"
+                    >
+                      <h3>得分明细</h3>
+                      {room.scoreBreakdown ? (
+                        <div className="score-table-wrap">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th scope="col">计分项目</th>
+                                <th scope="col">本局结果</th>
+                                <th scope="col">得分</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[
+                                [
+                                  "找回真品",
+                                  `找回 ${room.scoreBreakdown.antiques} 件真品，每件 1 分`,
+                                  room.scoreBreakdown.antiques,
+                                  6,
+                                ],
+                                [
+                                  "许愿身份保护",
+                                  room.scoreBreakdown.xu
+                                    ? "许愿未被老朝奉找到"
+                                    : "许愿被老朝奉找到",
+                                  room.scoreBreakdown.xu,
+                                  2,
+                                ],
+                                [
+                                  "方震身份保护",
+                                  room.scoreBreakdown.fang
+                                    ? "方震未被药不然找到"
+                                    : "方震被药不然找到",
+                                  room.scoreBreakdown.fang,
+                                  1,
+                                ],
+                                [
+                                  "指认老朝奉",
+                                  room.scoreBreakdown.chief
+                                    ? "许愿阵营相对多数正确指认"
+                                    : "未成功指认（含最高票并列）",
+                                  room.scoreBreakdown.chief,
+                                  1,
+                                ],
+                              ].map(([label, result, points, maximum]) => (
+                                <tr key={label}>
+                                  <th scope="row">{label}</th>
+                                  <td>{result}</td>
+                                  <td>
+                                    <strong>{points}</strong> / {maximum} 分
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr>
+                                <th scope="row" colSpan={2}>
+                                  许愿阵营总分
+                                </th>
+                                <td>
+                                  <strong>{room.score}</strong> 分
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      ) : room.score === 6 ? (
+                        <p className="score-direct-win">
+                          找回 6 件真品，获得 6
+                          分并直接获胜；未进入鉴人阶段，不计算身份指认加分。
+                        </p>
+                      ) : (
+                        <p>此旧对局未保存得分明细。</p>
+                      )}
+                    </section>
                     <div className="revealed-roles">
                       {room.revealed?.map((p) => (
                         <span key={p.id}>
