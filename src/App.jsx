@@ -522,6 +522,7 @@ function App() {
   const nav = [
     ["home", Compass, "入局大厅"],
     ["rules", BookOpen, "游戏规则"],
+    ["qa", HelpCircle, "规则 QA"],
     ["records", History, "我的手札"],
   ];
   useEffect(() => {
@@ -678,7 +679,9 @@ function App() {
                 ? "当前对局"
                 : page === "rules"
                   ? "游戏规则"
-                  : "我的手札"}
+                  : page === "qa"
+                    ? "规则 QA"
+                    : "我的手札"}
           </div>
           <div className="header-right">
             <span className={"connection " + (!connected ? "offline" : "")}>
@@ -898,6 +901,64 @@ function App() {
                     <p>{d}</p>
                   </section>
                 </div>
+              ))}
+            </div>
+          </div>
+        ) : page === "qa" ? (
+          <div className="content qa-page">
+            <div className="page-heading">
+              <span className="eyebrow">局中答疑</span>
+              <h1>规则 QA</h1>
+              <p>
+                按本 App 当前采用的规则解答 · 前后位置以本轮实际行动先后为准
+              </p>
+            </div>
+            <aside className="qa-principle">
+              <ShieldCheck size={22} />
+              <div>
+                <strong>袭击与牵连，分别计算</strong>
+                <p>
+                  药不然袭击方震时，方震和许愿各自在遭袭后的下一次行动受到影响，不一定落在同一轮。
+                </p>
+              </div>
+            </aside>
+            <div className="qa-list">
+              {[
+                {
+                  question:
+                    "六人局指认老朝奉时，老朝奉获 2 票，另外两人各获 1 票，算抓到吗？",
+                  answer:
+                    "算。许愿阵营四名玩家的指认结果为 2∶1∶1，老朝奉独占最高票，符合相对多数，许愿阵营加 1 分，不要求超过半数。最高票并列（例如 2∶2）则不算成功指认。",
+                  note: "相对多数：独占最高票即可。",
+                },
+                {
+                  question:
+                    "许愿、方震都已行动，药不然后行动并袭击方震，许愿下一轮还能鉴宝吗？",
+                  answer:
+                    "不能。袭击方震会同时牵连许愿。两人本轮都已行动，所以效果各自在下一轮行动时生效：方震不能查验阵营，许愿不能鉴宝。",
+                  note: "两人都已行动 → 两人下一轮分别受影响。",
+                },
+                {
+                  question:
+                    "许愿已行动，药不然袭击尚未行动的方震，许愿下一轮还会受影响吗？",
+                  answer:
+                    "会。方震尚未行动，本轮就不能查验阵营；许愿已经行动，下一轮不能鉴宝。方震本轮受到袭击，不会替许愿消耗掉牵连效果。",
+                  note: "方震本轮受影响，许愿下一轮受影响。",
+                },
+                {
+                  question:
+                    "方震已行动，药不然袭击方震，许愿尚未行动，许愿哪一轮不能鉴宝？",
+                  answer:
+                    "许愿本轮不能鉴宝，方震下一轮不能查验阵营。如果没有再次遭袭，许愿下一轮可以恢复鉴宝。",
+                  note: "许愿本轮受影响，方震下一轮受影响。",
+                },
+              ].map(({ question, answer, note }, index) => (
+                <article className="qa-card" key={question}>
+                  <span className="eyebrow">问 / 0{index + 1}</span>
+                  <h2>{question}</h2>
+                  <p>{answer}</p>
+                  <div className="qa-takeaway">{note}</div>
+                </article>
               ))}
             </div>
           </div>
