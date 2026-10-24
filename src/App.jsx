@@ -1882,6 +1882,32 @@ function App() {
                     </div>
                   </>
                 )}
+                {privateData && !["lobby", "finished"].includes(room.phase) && (
+                  <div
+                    className="my-token-pouch"
+                    style={{ "--player-token-color": COLORS[self?.color ?? 0] }}
+                    role="group"
+                    aria-label={`我的筹码：${privateData.tokens || 0} 枚`}
+                  >
+                    <span>我的筹码</span>
+                    <div className="my-token-icons" aria-hidden="true">
+                      {Array.from({ length: privateData.tokens || 0 }, (_, index) => {
+                        const allocated = room.phase === "vote" && !privateData.voted &&
+                          index < vote.reduce((sum, value) => sum + value, 0);
+                        return <span key={index} className={`player-token${allocated ? " allocated" : ""}`}>
+                          <span className="token-square" />
+                        </span>;
+                      })}
+                    </div>
+                    <small>
+                      {privateData.tokens || 0} 枚
+                      {room.phase === "vote" && !privateData.voted
+                        ? ` · 可用 ${Math.max(0, (privateData.tokens || 0) - vote.reduce((sum, value) => sum + value, 0))} 枚`
+                        : ""}
+                      {!privateData.tokens ? " · 筹码已用完" : ""}
+                    </small>
+                  </div>
+                )}
                 <div className="game-log">
                   <h3>
                     <ScrollText size={17} />

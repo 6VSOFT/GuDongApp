@@ -2587,3 +2587,28 @@ footer button {
   outline-offset: 8px;
   border-radius: 5px;
 }
+.my-token-pouch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 0 24px;
+  font-size: 13px;
+}
+.my-token-icons { display: flex; flex-wrap: wrap; gap: 7px; }
+.player-token {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--player-token-color);
+  outline: 1px solid var(--player-token-color);
+  outline-offset: 2px;
+  box-shadow: inset 0 0 0 2px #ffffff65;
+}
+.token-square { width: 7px; height: 7px; border: 1px solid #fff; }
+.player-token.allocated { opacity: .35; }
+.my-token-pouch small { color: #99927f; font-size: 12px; }
