@@ -209,6 +209,9 @@ export function skill(r, p, { skip, target }) {
           round: r.round,
           artifact: null,
           result: p.skillResult,
+          targetId: victim.id,
+          targetName: victim.name,
+          camp: evil(victim) ? "老朝奉阵营" : "许愿阵营",
         });
       } else if (p.role === "药不然") {
         const targets =
@@ -289,13 +292,11 @@ export function settleRound(r) {
   totals.sort((a, b) => b.votes - a.votes || a.artifact - b.artifact);
   r.protected = [
     ...(r.protected || []),
-    ...totals
-      .slice(0, 2)
-      .map((x) => ({
-        artifact: x.artifact,
-        truth: r.truth[x.artifact],
-        votes: x.votes,
-      })),
+    ...totals.slice(0, 2).map((x) => ({
+      artifact: x.artifact,
+      truth: r.truth[x.artifact],
+      votes: x.votes,
+    })),
   ];
   r.result = totals.map((x, i) => ({
     ...x,

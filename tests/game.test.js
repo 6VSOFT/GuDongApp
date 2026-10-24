@@ -45,6 +45,14 @@ test("方震直接查验阵营：每轮一次、不能查自己、遭袭失效�
   assert.equal(r.step, "inspect");
   g.checkCamp(r, p, { target: bad.id });
   assert.equal(p.skillResult, `${bad.name} · 老朝奉阵营`);
+  assert.equal(p.history[0].targetId, bad.id);
+  assert.equal(p.history[0].targetName, bad.name);
+  assert.equal(p.history[0].camp, "老朝奉阵营");
+  assert.equal(
+    g.privateState(r, good).history.some((item) => item.targetId === bad.id),
+    false,
+  );
+  assert.equal(g.publicState(r).history, undefined);
   assert.equal(r.step, "next");
   assert.throws(() => g.checkCamp(r, p, { target: good.id }));
   assert.equal(p.history.filter((h) => h.artifact === null).length, 1);

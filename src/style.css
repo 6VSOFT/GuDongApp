@@ -1257,6 +1257,38 @@ footer button {
 .protection-records {
   margin-top: 38px;
 }
+.camp-records {
+  margin-top: 36px;
+}
+.camp-records .section-title h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.camp-records-note {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #78816b;
+  background: #edeee3;
+  border: 1px solid #dfdfd0;
+  padding: 18px 22px;
+  border-radius: 5px;
+}
+.camp-player {
+  font: 20px var(--serif);
+  margin: 20px 0 12px;
+  overflow-wrap: anywhere;
+}
+.camp-result {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.camp-good {
+  color: #547560;
+}
+.camp-evil {
+  color: #a64c40;
+}
 .protection-note {
   font-size: 12px;
   line-height: 1.8;

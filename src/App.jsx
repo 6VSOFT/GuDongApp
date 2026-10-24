@@ -32,6 +32,7 @@ import QRCode from "qrcode";
 import * as engine from "../game.js";
 import "./style.css";
 import { displayText, localizeTree } from "./language.js";
+import { campCheckHistory } from "./camp-records.js";
 const socket =
   import.meta.env.VITE_DEPLOY_TARGET === "netlify"
     ? createCloudTransport()
@@ -1034,7 +1035,11 @@ function App() {
               <h1>我的鉴宝手札</h1>
               <p>私密记录不会向其他玩家公开。</p>
             </div>
-            {privateData?.history?.length ? (
+            {privateData?.role === "方震" ? (
+              <p className="camp-records-note">
+                方震不具备鉴宝能力。每轮可查验一名其他玩家的阵营，结果会私密保存在下方的验人记录中。
+              </p>
+            ) : privateData?.history?.length ? (
               <div className="history-list">
                 {privateData.history.map((h, i) => (
                   <article key={i}>
@@ -1114,6 +1119,56 @@ function App() {
                             {round > room.round
                               ? "尚未开始"
                               : "等待本轮投票结算"}
+                          </p>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+            {privateData?.role === "方震" && room && room.phase !== "lobby" && (
+              <section className="camp-records" aria-label="方震验人记录">
+                <div className="section-title">
+                  <h3>
+                    <ShieldCheck size={18} /> 方震验人记录
+                  </h3>
+                </div>
+                <p className="protection-note">
+                  每轮最多查验一名其他玩家 ·
+                  记录仅本人可见，不显示对方具体身份。
+                </p>
+                <div className="protection-grid">
+                  {[1, 2, 3].map((round) => {
+                    const entry = campCheckHistory(privateData.history).find(
+                      (item) => item.round === round,
+                    );
+                    return (
+                      <article className="protection-card" key={round}>
+                        <h3>第{["一", "二", "三"][round - 1]}轮</h3>
+                        {entry ? (
+                          <>
+                            <p className="camp-player">{entry.targetName}</p>
+                            <p
+                              className={
+                                "camp-result " +
+                                (entry.camp === "老朝奉阵营"
+                                  ? "camp-evil"
+                                  : entry.camp === "许愿阵营"
+                                    ? "camp-good"
+                                    : "")
+                              }
+                            >
+                              {entry.camp}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="protection-pending">
+                            {round > room.round
+                              ? "尚未开始"
+                              : round < room.round || room.phase !== "inspect"
+                                ? "本轮无查验记录"
+                                : "本轮尚未查验"}
                           </p>
                         )}
                       </article>
