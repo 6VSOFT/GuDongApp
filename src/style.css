@@ -1085,6 +1085,35 @@ footer button {
   font-weight: 500;
   color: #5e6d53;
 }
+.identity-role-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px dashed #929d82;
+  color: #66785a;
+}
+.identity-role-name:hover {
+  color: #a04638;
+  border-bottom-color: #a04638;
+}
+.identity-role-name:focus-visible {
+  outline: 2px solid #a04638;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.role-art-modal {
+  width: 520px;
+}
+.own-role-portrait {
+  display: block;
+  width: 100%;
+  max-height: 52dvh;
+  object-fit: contain;
+  margin: 18px auto;
+  border-radius: 5px;
+  background: #f7f4ea;
+}
 .identity-bar > button {
   margin-left: auto;
   font-size: 10px;

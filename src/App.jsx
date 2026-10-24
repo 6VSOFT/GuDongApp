@@ -561,7 +561,10 @@ function App() {
   }, [room?.round, room?.phase]);
   useEffect(() => {
     const hide = () => {
-      if (document.hidden) setReveal(false);
+      if (document.hidden) {
+        setReveal(false);
+        setModal((current) => (current === "roleArt" ? null : current));
+      }
     };
     document.addEventListener("visibilitychange", hide);
     return () => document.removeEventListener("visibilitychange", hide);
@@ -1347,9 +1350,20 @@ function App() {
                     <ShieldCheck size={21} />
                     <span>
                       我的身份
-                      <strong>
-                        {reveal ? privateData?.role : "身份已隐藏"}
-                      </strong>
+                      {reveal && ROLE_PORTRAITS[privateData?.role] ? (
+                        <button
+                          className="identity-role-name"
+                          aria-label={`查看${privateData.role}角色插图`}
+                          aria-haspopup="dialog"
+                          title="点击查看本人角色插图"
+                          onClick={() => setModal("roleArt")}
+                        >
+                          <strong>{privateData.role}</strong>
+                          <ScanLine size={14} />
+                        </button>
+                      ) : (
+                        <strong>身份已隐藏</strong>
+                      )}
                     </span>
                   </div>
                   <button onClick={() => setReveal(!reveal)}>
@@ -1917,9 +1931,17 @@ function App() {
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <div
-            className={"modal " + (modal === "video" ? "video-modal" : "")}
+            className={
+              "modal " +
+              (modal === "video"
+                ? "video-modal"
+                : modal === "roleArt"
+                  ? "role-art-modal"
+                  : "")
+            }
             role="dialog"
             aria-modal="true"
+            aria-label={modal === "roleArt" ? "本人角色插图" : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1993,6 +2015,24 @@ function App() {
                   {modal === "create" ? "开局，静候同道" : "入席，赴约"}{" "}
                   <ArrowRight size={18} />
                 </button>
+              </>
+            ) : modal === "roleArt" &&
+              reveal &&
+              ROLE_PORTRAITS[privateData?.role] ? (
+              <>
+                <span className="eyebrow">我的角色 · 仅本人查看</span>
+                <h2>{privateData.role}</h2>
+                <img
+                  className="own-role-portrait"
+                  src={rolePortrait(privateData.role, 768)}
+                  alt={`${privateData.role}角色插图`}
+                  onError={(event) => {
+                    const source = ROLE_PORTRAITS[privateData.role];
+                    if (event.currentTarget.getAttribute("src") !== source)
+                      event.currentTarget.src = source;
+                  }}
+                />
+                <p>{privateData.description}</p>
               </>
             ) : modal === "voteConfirm" ? (
               <>
@@ -2239,10 +2279,10 @@ const ROLE_PORTRAITS = {
   药不然: "/roles/yaoburan.png",
   郑国渠: "/roles/zhengguoqu.png",
 };
-function rolePortrait(role) {
+function rolePortrait(role, size = 256) {
   const source = ROLE_PORTRAITS[role];
   return import.meta.env.VITE_DEPLOY_TARGET === "netlify"
-    ? `/.netlify/images?url=${encodeURIComponent(source)}&w=256&h=256&fit=cover&q=80`
+    ? `/.netlify/images?url=${encodeURIComponent(source)}&w=${size}&h=${size}&fit=cover&q=80`
     : source;
 }
 export default App;
