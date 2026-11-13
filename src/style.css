@@ -698,6 +698,33 @@ header {
   border-left: 1px solid #d4d9c7;
   padding-left: 14px;
 }
+.sponsor-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+  max-width: 565px;
+  margin: 0 0 20px;
+  padding: 20px 24px;
+  border: 1px dashed #c8c1ad;
+  border-radius: 7px;
+  background: #f6f3ea;
+}
+.sponsor-slot h2 { margin: 0 0 5px; font-size: 18px; }
+.sponsor-slot p { margin: 0; font-size: 13px; color: #686453; }
+.sponsor-slot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #bfc7b6;
+  border-radius: 5px;
+  color: #435640;
+  text-decoration: none;
+  font-size: 13px;
+}
+.sponsor-slot a:hover { background: #e8ece0; }
 footer {
   display: flex;
   justify-content: space-between;
@@ -733,19 +760,6 @@ footer button {
 }
 .qa-page {
   max-width: 1100px;
-}
-.language-setting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin: 24px 0 18px;
-  font-size: 13px;
-}
-.language-setting select {
-  width: auto;
-  min-width: 145px;
-  margin: 0;
 }
 .qa-principle {
   display: flex;
@@ -1542,17 +1556,53 @@ footer button {
   margin: 15px 0 0;
   font-size: 10px;
 }
-.setting-row {
+.preferences-list {
   border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf7;
+}
+.preferences-list .preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
-  justify-content: flex-start;
-  padding: 17px;
-  margin-bottom: 25px;
+  min-height: 60px;
+  margin: 0;
+  padding: 12px;
+  font-size: 14px;
+  text-align: left;
+  color: var(--ink);
 }
-.setting-row span {
-  margin-left: auto;
-  color: #9e4836;
+.preference-row + .preference-row { border-top: 1px solid var(--line); }
+.preferences-list button:hover { background: #f2efe4; }
+.preference-label, .sound-control, .preferences-privacy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+.preference-label svg, .preferences-privacy svg { flex-shrink: 0; }
+.preference-label small { display: block; margin-top: 4px; color: #686453; }
+.preferences-list select { width: auto; margin: 0; padding: 8px; font-size: 13px; }
+.sound-control { color: #686453; font-size: 12px; white-space: nowrap; }
+.sound-track {
+  width: 38px;
+  height: 22px;
+  padding: 3px;
+  border-radius: 20px;
+  background: #777468;
+}
+.sound-track::before {
+  content: "";
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+}
+.sound-setting[aria-checked="true"] .sound-track { background: #536a54; }
+.sound-setting[aria-checked="true"] .sound-track::before { transform: translateX(16px); }
+.modal .preferences-privacy { margin: 16px 0 0; font-size: 12px; color: #686453; }
 .toast {
   position: fixed;
   bottom: 35px;

@@ -867,6 +867,15 @@ function App() {
                 安装到手机
               </button>
             </footer>
+            <section className="sponsor-slot" aria-labelledby="sponsor-title">
+              <div>
+                <h2 id="sponsor-title">赞助商</h2>
+                <p>赞助席位开放中</p>
+              </div>
+              <a href="https://wa.me/601110768852" target="_blank" rel="noopener noreferrer">
+                WhatsApp 联系 <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
+            </section>
           </div>
         ) : page === "rules" ? (
           <div className="content">
@@ -1967,6 +1976,7 @@ function App() {
             }
             role="dialog"
             aria-modal="true"
+            aria-labelledby={modal === "settings" ? "preferences-title" : undefined}
             aria-label={modal === "roleArt" ? "本人角色插图" : undefined}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2211,42 +2221,65 @@ function App() {
               </>
             ) : modal === "settings" ? (
               <>
-                <h2>偏好设置</h2>
-                <label className="language-setting">
-                  <span>界面语言</span>
-                  <select
-                    aria-label="界面语言"
-                    value={language}
-                    onChange={(event) => setLanguage(event.target.value)}
+                <h2 id="preferences-title">偏好设置</h2>
+                <div className="preferences-list">
+                  <label className="preference-row language-setting">
+                    <span className="preference-label">
+                      <BookOpen size={18} aria-hidden="true" />
+                      界面语言
+                    </span>
+                    <select
+                      aria-label="界面语言"
+                      value={language}
+                      onChange={(event) => setLanguage(event.target.value)}
+                    >
+                      <option value="zh-Hans" translate="no">
+                        简体中文
+                      </option>
+                      <option value="zh-Hant" translate="no">
+                        繁體中文
+                      </option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="preference-row sound-setting"
+                    role="switch"
+                    aria-checked={sound}
+                    aria-label="提示音"
+                    aria-describedby="sound-setting-description"
+                    onClick={() => {
+                      setSound(!sound);
+                      localStorage.setItem("gudong-sound", sound ? "off" : "on");
+                    }}
                   >
-                    <option value="zh-Hans" translate="no">
-                      简体中文
-                    </option>
-                    <option value="zh-Hant" translate="no">
-                      繁體中文
-                    </option>
-                  </select>
-                </label>
-                <button
-                  className="setting-row"
-                  onClick={() => {
-                    setSound(!sound);
-                    localStorage.setItem("gudong-sound", sound ? "off" : "on");
-                  }}
-                >
-                  <Volume2 size={19} />
-                  提示音<span>{sound ? "开启" : "关闭"}</span>
-                </button>
-                <p>身份默认隐藏，点击后仅在本机显示。</p>
-                <button
-                  className="outline"
-                  onClick={() =>
-                    install ? install.prompt() : setModal("install")
-                  }
-                >
-                  <Download size={16} />
-                  安装到手机
-                </button>
+                    <span className="preference-label">
+                      <Volume2 size={18} aria-hidden="true" />
+                      <span>
+                        提示音<small id="sound-setting-description">轮到你鉴定时播放</small>
+                      </span>
+                    </span>
+                    <span className="sound-control" aria-hidden="true">
+                      {sound ? "已开启" : "已关闭"}
+                      <span className="sound-track" />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="preference-row install-setting"
+                    onClick={() => (install ? install.prompt() : setModal("install"))}
+                  >
+                    <span className="preference-label">
+                      <Download size={18} aria-hidden="true" />
+                      安装到手机
+                    </span>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                </div>
+                <p className="preferences-privacy">
+                  <ShieldCheck size={16} aria-hidden="true" />
+                  身份默认隐藏，点击后仅在本机显示。
+                </p>
               </>
             ) : modal === "install" ? (
               <>
