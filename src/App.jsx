@@ -872,7 +872,11 @@ function App() {
                 <h2 id="sponsor-title">赞助商</h2>
                 <p>赞助席位开放中</p>
               </div>
-              <a href="https://wa.me/601110768852" target="_blank" rel="noopener noreferrer">
+              <a
+                href={`https://wa.me/601110768852?text=${encodeURIComponent("商谈App 赞助")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 WhatsApp 联系 <ArrowUpRight size={15} aria-hidden="true" />
               </a>
             </section>
