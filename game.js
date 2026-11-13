@@ -335,6 +335,9 @@ export function guess(r, p, target) {
     "请选择有效玩家",
   );
   r.guesses[p.id] = target;
+  settleGuesses(r);
+}
+function settleGuesses(r) {
   const required = r.players.filter((x) => x.role !== "郑国渠");
   if (Object.keys(r.guesses).length === required.length) {
     const chief = r.players.find((x) => x.role === "老朝奉"),
@@ -348,6 +351,7 @@ export function guess(r, p, target) {
       .filter((x) => !evil(x))
       .forEach((x) => {
         const t = r.guesses[x.id];
+        if (t == null) return;
         tally[t] = (tally[t] || 0) + 1;
       });
     const max = Math.max(...Object.values(tally));
@@ -365,10 +369,76 @@ export function guess(r, p, target) {
 }
 function finish(r) {
   r.phase = "finished";
+  preserveFinalRoster(r);
   r.winner = r.score >= 6 ? "许愿阵营" : "老朝奉阵营";
   r.logs.push(`终局揭晓：${r.winner}获胜。`);
 }
+const roleRoster = (r) =>
+  r.players.map(({ id, name, role }) => ({ id, name, role }));
+export function preserveFinalRoster(r) {
+  if (r.phase === "finished") r.finalRoster ??= roleRoster(r);
+}
+
+function pendingPlayers(r) {
+  switch (r.phase) {
+    case "inspect":
+      return r.players.filter((p) => p.id === r.turn);
+    case "discussion":
+      return r.players.filter((p) => p.id === r.speaker);
+    case "vote":
+      return r.players.filter((p) => !Object.hasOwn(r.votes, p.id));
+    case "result":
+      return r.players.filter((p) => !r.acks?.includes(p.id));
+    case "guess":
+      return r.players.filter(
+        (p) => p.role !== "郑国渠" && !Object.hasOwn(r.guesses, p.id),
+      );
+    default:
+      return [];
+  }
+}
+
+export function skipOffline(r, host, expected, isOnline = (p) => p.online) {
+  check(host.id === r.host, "只有房主可以跳过离线玩家");
+  check(
+    r.round === expected.round &&
+      r.phase === expected.phase &&
+      r.turn === expected.turn &&
+      r.speaker === expected.speaker &&
+      r.step === expected.step,
+    "对局已推进，请重新确认",
+  );
+  const phase = r.phase;
+  check(Array.isArray(expected.targets), "请选择离线玩家");
+  const offline = pendingPlayers(r).filter(
+    (p) => expected.targets.includes(p.id) && !isOnline(p),
+  );
+  check(offline.length, "当前没有待操作的离线玩家");
+  if (phase === "guess") {
+    for (const p of offline) r.guesses[p.id] = null;
+    r.logs.push(`房主已将 ${offline.length} 名离线玩家的指认按弃权处理。`);
+    settleGuesses(r);
+    return;
+  }
+  for (const p of offline) {
+    r.logs.push(`房主跳过了离线玩家 ${p.name} 的本阶段操作。`);
+    if (phase === "inspect") {
+      r.step = "next";
+      maybeFinishTurn(r, p);
+      if (r.phase === "inspect") {
+        const remaining = r.players.filter(
+          (q) => q.id !== p.id && !r.acted.includes(q.id),
+        );
+        next(r, p, (remaining.find(isOnline) || remaining[0]).id);
+      }
+    } else if (phase === "discussion") speech(r, p);
+    else if (phase === "vote") vote(r, p, [0, 0, 0, 0]);
+    else if (phase === "result") continueGame(r, p);
+  }
+}
+
 export function publicState(r) {
+  const pending = pendingPlayers(r);
   return {
     code: r.code,
     count: r.count,
@@ -400,12 +470,12 @@ export function publicState(r) {
       truth: r.phase === "finished" || index % 2 === 1 ? item.truth : null,
     })),
     ackCount: r.acks?.length || 0,
+    pendingPlayers: r.phase === "guess" ? [] : pending.map((p) => p.id),
+    guessPendingCount: r.phase === "guess" ? pending.length : null,
+    hasOfflineGuess: r.phase === "guess" && pending.some((p) => !p.online),
     winner: r.winner,
     scoreBreakdown: r.phase === "finished" ? r.scoreBreakdown : null,
-    revealed:
-      r.phase === "finished"
-        ? r.players.map(({ id, name, role }) => ({ id, name, role }))
-        : null,
+    revealed: r.phase === "finished" ? (r.finalRoster ?? roleRoster(r)) : null,
   };
 }
 export function privateState(r, p) {
@@ -426,6 +496,6 @@ export function privateState(r, p) {
         )?.name
       : null,
     voted: !!r.votes?.[p.id],
-    guessed: !!r.guesses?.[p.id],
+    guessed: Object.hasOwn(r.guesses || {}, p.id),
   };
 }

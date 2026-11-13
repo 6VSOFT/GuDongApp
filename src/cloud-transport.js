@@ -16,6 +16,7 @@ export function createCloudTransport({
     code = null,
     id = null,
     revision = -1,
+    presence = "",
     queue = Promise.resolve(),
     epoch = 0;
   const dispatch = (event, value) => {
@@ -79,7 +80,16 @@ export function createCloudTransport({
       code = r.code;
       revision = -1;
     }
-    if (!enter && r.version <= revision) return;
+    const nextPresence = r.players.map((p) => p.online).join(",");
+    if (!enter && r.version < revision) return;
+    if (!enter && r.version === revision) {
+      if (nextPresence !== presence) {
+        presence = nextPresence;
+        dispatch("state", { ...r, _enter: false });
+      }
+      return;
+    }
+    presence = nextPresence;
     revision = r.version;
     dispatch("state", { ...r, _enter: enter });
     dispatch("private", result.private);

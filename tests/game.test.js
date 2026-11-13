@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as g from "../game.js";
+import { removeLogin } from "../lib/room-membership.js";
 const player = (i, role) => ({
   id: "p" + i,
   name: "玩家" + i,
@@ -34,6 +35,68 @@ function turn(r, p) {
       r.players.find((x) => x.id !== p.id && !r.acted.includes(x.id)).id,
     );
 }
+test("房主可跳过离线玩家，待办状态与终局名单正确保留", () => {
+  const r = setup(8);
+  const host = r.players[0];
+  const offline = r.players.find((p) => p !== host && p.role !== "郑国渠");
+  const skip = (actor = host) =>
+    g.skipOffline(r, actor, {
+      round: r.round,
+      phase: r.phase,
+      step: r.step,
+      turn: r.turn,
+      speaker: r.speaker,
+      targets: [offline.id],
+    });
+  offline.online = false;
+  r.turn = offline.id;
+  assert.throws(() => skip(offline), /只有房主/);
+  skip();
+  assert.ok(r.acted.includes(offline.id));
+  while (r.phase === "inspect")
+    turn(
+      r,
+      r.players.find((p) => p.id === r.turn),
+    );
+  while (r.phase === "discussion") {
+    if (r.speaker === offline.id) skip();
+    else
+      g.speech(
+        r,
+        r.players.find((p) => p.id === r.speaker),
+      );
+  }
+  for (const p of r.players.filter((p) => p !== offline))
+    g.vote(r, p, [1, 0, 0, 0]);
+  assert.deepEqual(g.publicState(r).pendingPlayers, [offline.id]);
+  offline.online = true;
+  assert.throws(() => skip(), /没有待操作/);
+  offline.online = false;
+  const tokens = offline.tokens;
+  skip();
+  assert.equal(offline.tokens, tokens);
+  for (const p of r.players.filter((p) => p !== offline)) g.continueGame(r, p);
+  assert.deepEqual(g.publicState(r).pendingPlayers, [offline.id]);
+  skip();
+  assert.equal(r.round, 2);
+
+  r.phase = "guess";
+  r.guesses = {};
+  assert.deepEqual(g.publicState(r).pendingPlayers, []);
+  assert.equal(g.publicState(r).guessPendingCount, 7);
+  skip();
+  assert.equal(g.privateState(r, offline).guessed, true);
+  for (const p of r.players.filter(
+    (p) => p !== offline && p.role !== "郑国渠",
+  )) {
+    g.guess(r, p, r.players.find((q) => q !== p).id);
+  }
+  assert.equal(r.phase, "finished");
+  offline.auth = "test-session";
+  removeLogin(r, offline.auth);
+  assert.equal(r.players.length, 7);
+  assert.equal(g.publicState(r).revealed.length, 8);
+});
 test("方震直接查验阵营：每轮一次、不能查自己、遭袭失效且结果保密", () => {
   const r = setup(8),
     p = r.players.find((x) => x.role === "方震");

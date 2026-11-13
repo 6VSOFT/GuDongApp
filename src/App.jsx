@@ -226,6 +226,7 @@ function App() {
         : "zh-Hans",
     ),
     [modal, setModal] = useState(null),
+    [skipSnapshot, setSkipSnapshot] = useState(null),
     [count, setCount] = useState(8),
     [name, setName] = useState(localStorage.getItem("gudong-name") || ""),
     [code, setCode] = useState(
@@ -634,6 +635,16 @@ function App() {
   }, [modal]);
   const self = room?.players.find((p) => p.id === id),
     isTurn = room?.turn === id;
+  const waitingPlayers =
+    room?.players.filter((p) => room.pendingPlayers?.includes(p.id)) ?? [];
+  const skipCandidates = (
+    room?.phase === "guess" ? room.players : waitingPlayers
+  ).filter((p) => p.online === false);
+  const canSkipOffline =
+    !demo &&
+    room?.host === id &&
+    skipCandidates.length > 0 &&
+    (room.phase !== "guess" || room.hasOfflineGuess);
   const isFangAction =
     privateData?.role === "方震" &&
     isTurn &&
@@ -1242,13 +1253,15 @@ function App() {
                       ? p.ready
                         ? "已准备"
                         : "待准备"
-                      : room.acted?.includes(p.id)
-                        ? "已行动"
-                        : p.id === room.turn
-                          ? "正在行动"
-                          : p.online
-                            ? "席中"
-                            : "暂离"}
+                      : !p.online
+                        ? "暂离"
+                        : room.acted?.includes(p.id)
+                          ? "已行动"
+                          : p.id === room.turn
+                            ? "正在行动"
+                            : p.online
+                              ? "席中"
+                              : "暂离"}
                   </small>
                   {canCheckCamp && p.id !== id && (
                     <div className="camp-actions">
@@ -1517,37 +1530,40 @@ function App() {
                         ? "等待各方指认"
                         : "终局 · 辨人识心"}
                     </h2>
-                    <p>
-                      许愿阵营指认老朝奉；老朝奉指认许愿；药不然指认方震。提交后不可更改。
-                    </p>
-                    <select
-                      value={target}
-                      onChange={(e) => setTarget(e.target.value)}
-                    >
-                      <option value="">选择你要指认的玩家</option>
-                      {room.players
-                        .filter((p) => p.id !== id)
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      className="primary compact"
-                      disabled={
-                        !target ||
-                        privateData?.guessed ||
-                        privateData?.role === "郑国渠"
-                      }
-                      onClick={() => act("guess", { target })}
-                    >
-                      {privateData?.role === "郑国渠"
-                        ? "等待揭晓"
-                        : privateData?.guessed
-                          ? "已提交，等待揭晓"
-                          : "确认指认"}
-                    </button>
+                    {privateData?.role !== "郑国渠" && (
+                      <p>
+                        许愿阵营指认老朝奉；老朝奉指认许愿；药不然指认方震。提交后不可更改。
+                      </p>
+                    )}
+                    {room.guessPendingCount != null && (
+                      <p aria-live="polite">
+                        还有 {room.guessPendingCount} 人待指认
+                      </p>
+                    )}
+                    {privateData?.role !== "郑国渠" && (
+                      <>
+                        <select
+                          value={target}
+                          onChange={(e) => setTarget(e.target.value)}
+                        >
+                          <option value="">选择你要指认的玩家</option>
+                          {room.players
+                            .filter((p) => p.id !== id)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          className="primary compact"
+                          disabled={!target || privateData?.guessed}
+                          onClick={() => act("guess", { target })}
+                        >
+                          {privateData?.guessed ? "已提交，等待揭晓" : "确认指认"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -1895,6 +1911,45 @@ function App() {
                     </div>
                   </>
                 )}
+                {waitingPlayers.length > 0 && (
+                  <p className="waiting-players" aria-live="polite">
+                    等待
+                    {
+                      {
+                        inspect: "行动",
+                        discussion: "发言",
+                        vote: "投票",
+                        result: "确认结果",
+                      }[room.phase]
+                    }
+                    ：
+                    {waitingPlayers
+                      .map(
+                        (p) => p.name + (p.online === false ? "（离线）" : ""),
+                      )
+                      .join("、")}
+                  </p>
+                )}
+                {canSkipOffline && (
+                  <button
+                    className="outline compact"
+                    disabled={!connected}
+                    onClick={() => {
+                      const { round, phase, turn, speaker, step } = room;
+                      setSkipSnapshot({
+                        round,
+                        phase,
+                        turn,
+                        speaker,
+                        step,
+                        targets: skipCandidates.map((p) => p.id),
+                      });
+                      setModal("skipOffline");
+                    }}
+                  >
+                    跳过离线玩家
+                  </button>
+                )}
                 {privateData && !["lobby", "finished"].includes(room.phase) && (
                   <div
                     className="my-token-pouch"
@@ -1904,13 +1959,23 @@ function App() {
                   >
                     <span>我的筹码</span>
                     <div className="my-token-icons" aria-hidden="true">
-                      {Array.from({ length: privateData.tokens || 0 }, (_, index) => {
-                        const allocated = room.phase === "vote" && !privateData.voted &&
-                          index < vote.reduce((sum, value) => sum + value, 0);
-                        return <span key={index} className={`player-token${allocated ? " allocated" : ""}`}>
-                          <span className="token-square" />
-                        </span>;
-                      })}
+                      {Array.from(
+                        { length: privateData.tokens || 0 },
+                        (_, index) => {
+                          const allocated =
+                            room.phase === "vote" &&
+                            !privateData.voted &&
+                            index < vote.reduce((sum, value) => sum + value, 0);
+                          return (
+                            <span
+                              key={index}
+                              className={`player-token${allocated ? " allocated" : ""}`}
+                            >
+                              <span className="token-square" />
+                            </span>
+                          );
+                        },
+                      )}
                     </div>
                     <small>
                       {privateData.tokens || 0} 枚
@@ -1980,7 +2045,9 @@ function App() {
             }
             role="dialog"
             aria-modal="true"
-            aria-labelledby={modal === "settings" ? "preferences-title" : undefined}
+            aria-labelledby={
+              modal === "settings" ? "preferences-title" : undefined
+            }
             aria-label={modal === "roleArt" ? "本人角色插图" : undefined}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2163,6 +2230,28 @@ function App() {
                     : "同一 Wi-Fi 的玩家扫码或输入房间号入席。"}
                 </p>
               </>
+            ) : modal === "skipOffline" ? (
+              <>
+                <h2>跳过离线玩家？</h2>
+                <p>
+                  仅处理本阶段仍离线且未完成操作的玩家。投票和指认按弃权处理，跳过后无法补交。
+                </p>
+                <div className="skill-controls">
+                  <button
+                    className="primary"
+                    disabled={!connected}
+                    onClick={() => {
+                      setModal(null);
+                      act("skipOffline", skipSnapshot);
+                    }}
+                  >
+                    确认跳过
+                  </button>
+                  <button className="outline" onClick={() => setModal(null)}>
+                    取消
+                  </button>
+                </div>
+              </>
             ) : modal === "dissolve" ? (
               <>
                 <h2>解散房间？</h2>
@@ -2254,13 +2343,19 @@ function App() {
                     aria-describedby="sound-setting-description"
                     onClick={() => {
                       setSound(!sound);
-                      localStorage.setItem("gudong-sound", sound ? "off" : "on");
+                      localStorage.setItem(
+                        "gudong-sound",
+                        sound ? "off" : "on",
+                      );
                     }}
                   >
                     <span className="preference-label">
                       <Volume2 size={18} aria-hidden="true" />
                       <span>
-                        提示音<small id="sound-setting-description">轮到你鉴定时播放</small>
+                        提示音
+                        <small id="sound-setting-description">
+                          轮到你鉴定时播放
+                        </small>
                       </span>
                     </span>
                     <span className="sound-control" aria-hidden="true">
@@ -2271,7 +2366,9 @@ function App() {
                   <button
                     type="button"
                     className="preference-row install-setting"
-                    onClick={() => (install ? install.prompt() : setModal("install"))}
+                    onClick={() =>
+                      install ? install.prompt() : setModal("install")
+                    }
                   >
                     <span className="preference-label">
                       <Download size={18} aria-hidden="true" />

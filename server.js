@@ -235,6 +235,7 @@ io.on("connection", (s) => {
       game.vote(r, p, d.votes);
     },
     continue: game.continueGame,
+    skipOffline: game.skipOffline,
     guess: (r, p, d) => game.guess(r, p, d.target),
   }))
     on(event, (d) => {
@@ -244,6 +245,7 @@ io.on("connection", (s) => {
     });
   on("leave", () => {
     const [r, p] = ctx();
+    game.preserveFinalRoster(r);
     if (r.phase === "lobby" || r.phase === "finished") {
       r.players = r.players.filter((x) => x.id !== p.id);
       if (!r.players.length) rooms.delete(r.code);
