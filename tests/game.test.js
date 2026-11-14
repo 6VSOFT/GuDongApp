@@ -75,10 +75,20 @@ test("房主可跳过离线玩家，待办状态与终局名单正确保留", ()
   const tokens = offline.tokens;
   skip();
   assert.equal(offline.tokens, tokens);
-  for (const p of r.players.filter((p) => p !== offline)) g.continueGame(r, p);
-  assert.deepEqual(g.publicState(r).pendingPlayers, [offline.id]);
+  assert.equal(g.privateState(r, offline).voteSkipped, true);
+  assert.equal(g.privateState(r, host).voteSkipped, false);
+  for (const p of r.players.filter((p) => p !== offline && p !== host))
+    g.continueGame(r, p);
+  assert.deepEqual(g.publicState(r).pendingPlayers, [host.id, offline.id]);
   skip();
+  assert.equal(g.privateState(r, offline).resultSkipped, true);
+  assert.equal(g.privateState(r, offline).resultConfirmed, true);
+  assert.equal(g.privateState(r, host).resultConfirmed, false);
+  g.continueGame(r, host);
   assert.equal(r.round, 2);
+  assert.equal(g.privateState(r, offline).voteSkipped, false);
+  assert.equal(g.privateState(r, offline).resultConfirmed, false);
+  assert.equal(g.privateState(r, offline).resultSkipped, false);
 
   r.phase = "guess";
   r.guesses = {};
@@ -86,6 +96,7 @@ test("房主可跳过离线玩家，待办状态与终局名单正确保留", ()
   assert.equal(g.publicState(r).guessPendingCount, 7);
   skip();
   assert.equal(g.privateState(r, offline).guessed, true);
+  assert.equal(g.privateState(r, offline).guessSkipped, true);
   for (const p of r.players.filter(
     (p) => p !== offline && p.role !== "郑国渠",
   )) {

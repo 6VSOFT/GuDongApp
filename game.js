@@ -84,7 +84,9 @@ function beginRound(r, first) {
   r.covered = [];
   r.acted = [];
   r.votes = {};
+  r.skippedVotes = [];
   r.acks = [];
+  r.skippedAcks = [];
   r.result = null;
   r.tail = null;
   r.players.forEach((p) => {
@@ -432,8 +434,13 @@ export function skipOffline(r, host, expected, isOnline = (p) => p.online) {
         next(r, p, (remaining.find(isOnline) || remaining[0]).id);
       }
     } else if (phase === "discussion") speech(r, p);
-    else if (phase === "vote") vote(r, p, [0, 0, 0, 0]);
-    else if (phase === "result") continueGame(r, p);
+    else if (phase === "vote") {
+      (r.skippedVotes ??= []).push(p.id);
+      vote(r, p, [0, 0, 0, 0]);
+    } else if (phase === "result") {
+      (r.skippedAcks ??= []).push(p.id);
+      continueGame(r, p);
+    }
   }
 }
 
@@ -496,6 +503,10 @@ export function privateState(r, p) {
         )?.name
       : null,
     voted: !!r.votes?.[p.id],
+    voteSkipped: r.skippedVotes?.includes(p.id) ?? false,
     guessed: Object.hasOwn(r.guesses || {}, p.id),
+    guessSkipped: r.guesses?.[p.id] === null,
+    resultConfirmed: r.acks?.includes(p.id) ?? false,
+    resultSkipped: r.skippedAcks?.includes(p.id) ?? false,
   };
 }

@@ -1540,30 +1540,36 @@ function App() {
                         还有 {room.guessPendingCount} 人待指认
                       </p>
                     )}
-                    {privateData?.role !== "郑国渠" && (
-                      <>
-                        <select
-                          value={target}
-                          onChange={(e) => setTarget(e.target.value)}
-                        >
-                          <option value="">选择你要指认的玩家</option>
-                          {room.players
-                            .filter((p) => p.id !== id)
-                            .map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                        </select>
-                        <button
-                          className="primary compact"
-                          disabled={!target || privateData?.guessed}
-                          onClick={() => act("guess", { target })}
-                        >
-                          {privateData?.guessed ? "已提交，等待揭晓" : "确认指认"}
-                        </button>
-                      </>
+                    {privateData?.guessSkipped && (
+                      <p>本阶段已被跳过，按弃权处理。</p>
                     )}
+                    {privateData?.role !== "郑国渠" &&
+                      !privateData?.guessSkipped && (
+                        <>
+                          <select
+                            value={target}
+                            onChange={(e) => setTarget(e.target.value)}
+                          >
+                            <option value="">选择你要指认的玩家</option>
+                            {room.players
+                              .filter((p) => p.id !== id)
+                              .map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            className="primary compact"
+                            disabled={!target || privateData?.guessed}
+                            onClick={() => act("guess", { target })}
+                          >
+                            {privateData?.guessed
+                              ? "已提交，等待揭晓"
+                              : "确认指认"}
+                          </button>
+                        </>
+                      )}
                   </div>
                 ) : (
                   <>
@@ -1855,15 +1861,17 @@ function App() {
                       ) : room.phase === "vote" ? (
                         <>
                           <h2>
-                            {privateData?.voted
-                              ? "筹码已落，静候揭晓"
-                              : "护真去伪，请落筹码"}
+                            {privateData?.voteSkipped
+                              ? "本阶段已被跳过，按弃权处理"
+                              : privateData?.voted
+                                ? "筹码已落，静候揭晓"
+                                : "护真去伪，请落筹码"}
                           </h2>
                           <p>
                             {privateData?.voted
                               ? `本轮投票已锁定 · 剩余筹码 ${privateData?.tokens || 0}`
                               : `点击兽首分配筹码，可弃票累积 · 已分配 ${vote.reduce((a, b) => a + b, 0)} / ${privateData?.tokens || 0}`}{" "}
-                            · 已提交 {room.voteCount} / {room.count} 人
+                            · 已处理 {room.voteCount} / {room.count} 人
                           </p>
                           <button
                             className="primary compact"
@@ -1878,17 +1886,22 @@ function App() {
                               setModal("voteConfirm");
                             }}
                           >
-                            {voteSubmitting
-                              ? "正在提交…"
-                              : privateData?.voted
-                                ? "已提交，不可修改"
-                                : "确认投票"}{" "}
+                            {privateData?.voteSkipped
+                              ? "已跳过，等待揭晓"
+                              : voteSubmitting
+                                ? "正在提交…"
+                                : privateData?.voted
+                                  ? "已提交，不可修改"
+                                  : "确认投票"}{" "}
                             <Send size={16} />
                           </button>
                         </>
                       ) : (
                         <>
                           <h2>本轮护宝结果</h2>
+                          {privateData?.voteSkipped && (
+                            <p>本轮投票已被跳过，按弃权处理。</p>
+                          )}
                           <p>
                             {room.result
                               ?.map(
@@ -1899,19 +1912,37 @@ function App() {
                           </p>
                           <button
                             className="primary compact"
+                            disabled={privateData?.resultConfirmed}
                             onClick={() => act("continue")}
                           >
-                            确认结果，继续 <ArrowRight size={16} />
+                            {privateData?.resultSkipped
+                              ? "已跳过，等待其他玩家"
+                              : privateData?.resultConfirmed
+                                ? "已确认，等待其他玩家"
+                                : "确认结果，继续"}{" "}
+                            <ArrowRight size={16} />
                           </button>
                           <small>
-                            已确认 {room.ackCount || 0} / {room.count} 人
+                            已处理 {room.ackCount || 0} / {room.count} 人
                           </small>
+                          {waitingPlayers.length > 0 && (
+                            <p className="waiting-players" aria-live="polite">
+                              等待确认结果：
+                              {waitingPlayers
+                                .map(
+                                  (p) =>
+                                    p.name +
+                                    (p.online === false ? "（离线）" : ""),
+                                )
+                                .join("、")}
+                            </p>
+                          )}
                         </>
                       )}
                     </div>
                   </>
                 )}
-                {waitingPlayers.length > 0 && (
+                {room.phase !== "result" && waitingPlayers.length > 0 && (
                   <p className="waiting-players" aria-live="polite">
                     等待
                     {
@@ -1919,7 +1950,6 @@ function App() {
                         inspect: "行动",
                         discussion: "发言",
                         vote: "投票",
-                        result: "确认结果",
                       }[room.phase]
                     }
                     ：
